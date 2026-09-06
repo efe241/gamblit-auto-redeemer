@@ -77,6 +77,7 @@ class GamblitClient:
 
             # If no cookies configured, skip WS
             if not self.config.parsed_cookies:
+                self._profile = None
                 return False
 
             cookie_header = self._build_cookie_header()
@@ -359,6 +360,7 @@ class GamblitClient:
 
     async def close(self):
         self._connected = False
+        self._profile = None
         if self._ping_task:
             self._ping_task.cancel()
         if self._listen_task:
