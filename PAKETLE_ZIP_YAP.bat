@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 title Gamblit Auto-Redeemer Pro - Zip Paketleyici
 color 0b
 echo ========================================================
