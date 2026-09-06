@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  redeemer:
+    build: .
+    container_name: gamblit_redeemer
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    network_mode: "host"  # Minimizes network latency

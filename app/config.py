@@ -1,0 +1,108 @@
+"""
+Configuration loader for Gamblit Promo Code Auto-Redeemer.
+Loads from environment variables and .env file.
+"""
+import os
+import json
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env if present
+load_dotenv()
+
+
+@dataclass
+class Config:
+    # Discord Settings
+    discord_token: str = field(default_factory=lambda: os.getenv("DISCORD_TOKEN", ""))
+    discord_guild_id: int = field(default_factory=lambda: int(os.getenv("DISCORD_GUILD_ID", "0") or 0))
+    discord_channel_id: int = field(default_factory=lambda: int(os.getenv("DISCORD_CHANNEL_ID", "0") or 0))
+
+    # Gamblit Account Settings
+    gamblit_base_url: str = field(
+        default_factory=lambda: os.getenv("GAMBLIT_BASE_URL", "https://gamblit.net").rstrip("/")
+    )
+    raw_cookies: str = field(default_factory=lambda: os.getenv("GAMBLIT_COOKIES", "{}"))
+    gamblit_user_agent: str = field(
+        default_factory=lambda: os.getenv(
+            "GAMBLIT_USER_AGENT",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        )
+    )
+
+    # Redeem Endpoints (list of candidates to probe or execute)
+    redeem_endpoints: List[str] = field(
+        default_factory=lambda: [
+            ep.strip()
+            for ep in os.getenv(
+                "REDEEM_ENDPOINTS",
+                "/api/promo/redeem,/api/codes/redeem,/api/promocode/redeem,/api/user/redeem",
+            ).split(",")
+            if ep.strip()
+        ]
+    )
+
+    # Network / Timeout Optimizations
+    connect_timeout_sec: float = field(
+        default_factory=lambda: float(os.getenv("CONNECT_TIMEOUT_SEC", "3.0"))
+    )
+    read_timeout_sec: float = field(
+        default_factory=lambda: float(os.getenv("READ_TIMEOUT_SEC", "5.0"))
+    )
+    max_retries: int = field(default_factory=lambda: int(os.getenv("MAX_RETRIES", "2")))
+    rate_limit_backoff_factor: float = field(
+        default_factory=lambda: float(os.getenv("RATE_LIMIT_BACKOFF_FACTOR", "1.5"))
+    )
+
+    # Captcha Solvers (CapSolver / 2Captcha)
+    capsolver_api_key: str = field(default_factory=lambda: os.getenv("CAPSOLVER_API_KEY", ""))
+    twocaptcha_api_key: str = field(default_factory=lambda: os.getenv("TWOCAPTCHA_API_KEY", ""))
+
+    # Database & Logs
+    database_path: str = field(
+        default_factory=lambda: os.getenv("DATABASE_PATH", "data/gamblit.db")
+    )
+    port: int = field(default_factory=lambda: int(os.getenv("PORT", "5050") or 5050))
+    log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
+    log_file: str = field(default_factory=lambda: os.getenv("LOG_FILE", "logs/app.log"))
+
+    @property
+    def parsed_cookies(self) -> Dict[str, str]:
+        """Parses cookies from JSON or semicolon-delimited cookie string."""
+        raw = self.raw_cookies.strip()
+        if not raw:
+            return {}
+
+        # Try JSON first
+        if raw.startswith("{"):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    return {str(k): str(v) for k, v in parsed.items()}
+            except Exception:
+                pass
+
+        # Try standard Cookie header format "key=val; key2=val2"
+        cookies = {}
+        for part in raw.split(";"):
+            if "=" in part:
+                k, v = part.strip().split("=", 1)
+                cookies[k.strip()] = v.strip()
+        return cookies
+
+    def validate_for_production(self) -> List[str]:
+        """Returns list of missing/invalid configuration items."""
+        errors = []
+        if not self.discord_token:
+            errors.append("DISCORD_TOKEN is not set.")
+        if not self.discord_channel_id:
+            errors.append("DISCORD_CHANNEL_ID is not set.")
+        if not self.parsed_cookies:
+            errors.append("GAMBLIT_COOKIES is empty.")
+        return errors
+
+
+# Global config instance
+cfg = Config()

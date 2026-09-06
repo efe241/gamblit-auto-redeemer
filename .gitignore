@@ -1,0 +1,29 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.token
+config/gamblit.json
+
+# Database & runtime data
+*.db
+*.sqlite
+*.sqlite3
+data/
+logs/
+
+# Python & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+
+# OS specific
+.DS_Store
+Thumbs.db
+*.zip

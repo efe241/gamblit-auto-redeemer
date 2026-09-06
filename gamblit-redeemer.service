@@ -1,0 +1,17 @@
+[Unit]
+Description=Gamblit Promo Code Auto-Redeemer Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/gamblit-code-redeemer
+ExecStart=/opt/gamblit-code-redeemer/.venv/bin/python main.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/gamblit-code-redeemer/.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,48 @@
+===================================================================
+      ⚡ GAMBLIT AUTO-REDEEMER PRO - HIZLI BAŞLANGIÇ KILAVUZU ⚡
+===================================================================
+
+Tebrikler! Piyasanın en hızlı ve en gelişmiş Gamblit Promo Kod 
+Yakalayıcısına sahip oldunuz.
+
+Kurulum sadece 1 dakika sürer ve hiçbir kodlama bilgisi gerektirmez!
+
+-------------------------------------------------------------------
+ADIM 1: BOTU BAŞLATMA
+-------------------------------------------------------------------
+1. Klasördeki "BASLAT.bat" (veya "START.bat") dosyasına çift tıklayın.
+2. Bot otomatik olarak gereksinimleri hazırlar ve 3 saniye içinde
+   varsayılan tarayıcınızda kontrol panelini açar:
+   👉 http://localhost:5050
+
+-------------------------------------------------------------------
+ADIM 2: BİLGİLERİNİZİ GİRME (Web Panelinden)
+-------------------------------------------------------------------
+Açılan web sayfasında en alttaki "⚙️ Sistem Ayarları" kısmına gelin:
+
+1. GAMBLIT ÇEREZLERİ:
+   - gamblit.net sitesinde F12 basın -> Application (Uygulama) -> Cookies (Çerezler).
+   - "cf_clearance", "sid", "_iidt", "_vid_t" çerezlerinizi girin.
+   
+2. DISCORD KULLANICI TOKENİ & KANAL ID:
+   - Kodların paylaşıldığı kanalın ID'sini "DISCORD KANAL ID" kutusuna yazın.
+   - Kendi Discord kullanıcı tokeninizi "DISCORD BOT TOKEN" kutusuna girin.
+   *(Bot hesabı değil, kendi hesabınız sadece kanalı okur - sıfır mesaj, tam gizlilik)*
+
+3. CAPTCHA ÇÖZÜCÜ:
+   - CapSolver veya 2Captcha API anahtarınız varsa kutuya girin.
+   - Eğer API anahtarınız yoksa paneldeki "Tarayıcıdan 1-Tıkla Token Çekme"
+     scriptini kullanarak tek tıkla ücretsiz token yükleyebilirsiniz.
+
+4. "💾 Ayarları Kaydet & Yenile" butonuna tıklayın!
+
+-------------------------------------------------------------------
+ADIM 3: TAMAMLANDI!
+-------------------------------------------------------------------
+Bot artık arka planda çalışıyor!
+- Bir kod düştüğünde milisaniyeler içinde kodu yakalar,
+- Gamblit WebSocket bağlantısı üzerinden MessagePack ile sunucuya anında iletir.
+- Kazandığınız ödülleri ve hız istatistiklerini panelden canlı takip edebilirsiniz.
+
+Bol kazançlar! 🚀
+===================================================================
