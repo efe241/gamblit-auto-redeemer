@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY . .
 
-# Create volume mounts for persistent data and logs
-VOLUME ["/app/data", "/app/logs"]
+# Ensure data and logs directories exist
+RUN mkdir -p /app/data /app/logs
 
 EXPOSE 5050
 
