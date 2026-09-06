@@ -616,7 +616,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
+        function updateBridgeSnippet() {
+            const host = window.location.origin;
+            const snippet = `(() => { const send = (t) => { if (!t) return; fetch("${host}/api/captcha", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token: t}) }).then(() => console.log("%c[✔] TOKEN BOTA AKTARILDI! HAVUZ DOLDU!", "background: #00ff88; color: #000; font-weight: bold; font-size: 14px; padding: 4px;")).catch(e => console.error("Bot baglanti hatasi:", e)); }; for (let i = 0; i < 5; i++) { try { const ex = hcaptcha.getResponse(i); if (ex) { send(ex); return; } } catch(e) {} } for (let i = 0; i < 5; i++) { try { hcaptcha.execute(i, { async: true }).then(res => { const t = (typeof res === 'object' && res ? res.response : res) || hcaptcha.getResponse(i); send(t); }); break; } catch(e) {} } })();`;
+            const el = document.getElementById('bridge-snippet');
+            if (el) el.innerText = snippet;
+        }
+
         function copySnippet() {
+            updateBridgeSnippet();
             const text = document.getElementById('bridge-snippet').innerText;
             navigator.clipboard.writeText(text).then(() => {
                 showToast('📋 Konsol kodu panoya kopyalandı!');
@@ -678,6 +686,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             } catch(e) {}
         }
 
+        updateBridgeSnippet();
         refreshData();
         loadConfig();
         setInterval(refreshData, 3000);
