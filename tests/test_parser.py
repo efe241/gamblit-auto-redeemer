@@ -66,3 +66,25 @@ def test_parse_message_returns_metadata():
     assert parsed.message_id == 1001
     assert parsed.channel_id == 2002
     assert parsed.parse_latency_ms >= 0.0
+
+
+def test_multi_level_cascading_codes():
+    msg = """
+    🚨 MEGA DROP 🚨
+    LEVEL 150+ Use the code LEVEL150CODE to claim 500 DL
+    LEVEL 100+ Use the code LEVEL100CODE to claim 250 DL
+    LEVEL 50+  Use the code LEVEL50CODE  to claim 100 DL
+    LEVEL 10+  Use the code LEVEL10CODE   to claim 20 DL
+    """
+    # User is level 120 -> should get LEVEL100CODE, LEVEL50CODE, LEVEL10CODE in that descending order!
+    codes = CodeParser.extract_eligible_codes(msg, user_level=120)
+    assert codes == ["LEVEL100CODE", "LEVEL50CODE", "LEVEL10CODE"]
+
+    # User is level 200 -> gets all 4 codes descending
+    all_codes = CodeParser.extract_eligible_codes(msg, user_level=200)
+    assert all_codes == ["LEVEL150CODE", "LEVEL100CODE", "LEVEL50CODE", "LEVEL10CODE"]
+
+    # User is level 5 -> not eligible for anything
+    no_codes = CodeParser.extract_eligible_codes(msg, user_level=5)
+    assert no_codes == []
+

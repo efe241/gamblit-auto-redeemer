@@ -213,34 +213,40 @@ class DiscordGatewayListener:
 
         self.metrics.record_received()
 
-        # Parse Code
-        parsed = CodeParser.parse_message(
+        # Parse Codes (highest eligible level down to lowest)
+        user_level = None
+        if self.gamblit_client and self.gamblit_client._profile:
+            user_level = self.gamblit_client._profile.level
+
+        parsed_list = CodeParser.parse_all_eligible_codes(
             content=content,
             message_id=message_id,
             channel_id=channel_id,
             guild_id=guild_id,
             author_id=author_id,
             received_at=t0,
+            user_level=user_level,
         )
 
-        if not parsed:
+        if not parsed_list:
             return
 
-        self.metrics.record_parsed()
-        log.info(
-            f"⚡ [KOD YAKALANDI] '{parsed.code}' | Kanal: #{channel_id} | Gönderen: {author_name} "
-            f"| Ayrıştırma Gecikmesi: {parsed.parse_latency_ms:.2f} ms"
-        )
-
-        # Enqueue for redemption
-        enqueued = await self.queue.enqueue(parsed)
-        if enqueued:
-            await self.db.log_event(
-                "CODE_ENQUEUED",
-                {
-                    "code": parsed.code,
-                    "message_id": message_id,
-                    "author": author_name,
-                    "channel_id": channel_id,
-                },
+        for parsed in parsed_list:
+            self.metrics.record_parsed()
+            log.info(
+                f"⚡ [KOD YAKALANDI] '{parsed.code}' | Kanal: #{channel_id} | Gönderen: {author_name} "
+                f"| Ayrıştırma Gecikmesi: {parsed.parse_latency_ms:.2f} ms"
             )
+
+            # Enqueue for redemption
+            enqueued = await self.queue.enqueue(parsed)
+            if enqueued:
+                await self.db.log_event(
+                    "CODE_ENQUEUED",
+                    {
+                        "code": parsed.code,
+                        "message_id": message_id,
+                        "author": author_name,
+                        "channel_id": channel_id,
+                    },
+                )

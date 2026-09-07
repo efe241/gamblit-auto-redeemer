@@ -91,7 +91,7 @@ class DiscordCodeListener(commands.Bot):
         if self.gamblit_client and self.gamblit_client._profile:
             user_level = self.gamblit_client._profile.level
 
-        parsed = CodeParser.parse_message(
+        parsed_list = CodeParser.parse_all_eligible_codes(
             content=message.content,
             message_id=message.id,
             channel_id=message.channel.id,
@@ -101,25 +101,26 @@ class DiscordCodeListener(commands.Bot):
             user_level=user_level,
         )
 
-        if not parsed:
+        if not parsed_list:
             # Message contains no valid code pattern
             await self.process_commands(message)
             return
 
-        self.metrics.record_parsed()
-        log.info(
-            f"[Code Detected] '{parsed.code}' in #{message.channel} by {message.author} "
-            f"(Parse latency: {parsed.parse_latency_ms:.2f} ms)"
-        )
+        for parsed in parsed_list:
+            self.metrics.record_parsed()
+            log.info(
+                f"⚡ [Kod Algılandı] '{parsed.code}' (#{message.channel}, {message.author}) "
+                f"(Gecikme: {parsed.parse_latency_ms:.2f} ms)"
+            )
 
-        # 5. Non-blocking Enqueue (Hot Path -> Queue -> Worker)
-        enqueued = await self.queue.enqueue(parsed)
-        if enqueued:
-            await self.db.log_event("CODE_ENQUEUED", {
-                "code": parsed.code,
-                "message_id": message.id,
-                "author": str(message.author),
-            })
+            # 5. Non-blocking Enqueue (Hot Path -> Queue -> Worker)
+            enqueued = await self.queue.enqueue(parsed)
+            if enqueued:
+                await self.db.log_event("CODE_ENQUEUED", {
+                    "code": parsed.code,
+                    "message_id": message.id,
+                    "author": str(message.author),
+                })
 
         await self.process_commands(message)
 

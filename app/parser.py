@@ -50,16 +50,18 @@ class CodeParser:
         Sorts descending by level (highest reward first).
         """
         results = []
-        parts = re.split(r"LEVEL\s*(\d+)\+?", content, flags=re.I)
-        for i in range(1, len(parts), 2):
+        # Pattern matching: LEVEL 150+ ... (code / use the code) CODE
+        pattern = re.compile(
+            r"\bLEVEL\s*(\d+)\+?.*?(?:use\s+the\s+code|code)\s+\**([A-Za-z0-9_-]{3,32})\**",
+            re.IGNORECASE,
+        )
+        matches = pattern.findall(content)
+        for lvl_str, code_str in matches:
             try:
-                lvl = int(parts[i])
-                chunk = parts[i + 1]
-                m_code = re.search(r"(?:use\s+the\s+code|code)\s+\**([A-Za-z0-9_-]{3,32})\**", chunk, re.I)
-                if m_code:
-                    code_clean = m_code.group(1).strip().upper()
-                    if cls.validate_code_format(code_clean):
-                        results.append((lvl, code_clean))
+                lvl = int(lvl_str)
+                code_clean = code_str.strip().upper()
+                if cls.validate_code_format(code_clean):
+                    results.append((lvl, code_clean))
             except Exception:
                 continue
 
@@ -164,3 +166,51 @@ class CodeParser:
             parsed_at=t1,
             raw_content=content,
         )
+
+    @classmethod
+    def extract_eligible_codes(cls, content: str, user_level: Optional[int] = None) -> List[str]:
+        """
+        Extracts all eligible codes from message sorted from highest level requirement down to lowest.
+        If user_level is provided, filters out codes that require a higher level than user_level.
+        """
+        level_codes = cls.extract_level_codes(content)
+        if level_codes:
+            eligible = []
+            for req_lvl, code in level_codes:
+                if user_level is None or user_level <= 0 or user_level >= req_lvl:
+                    eligible.append(code)
+            return eligible
+
+        # Fallback to single raw code (non-level announcements)
+        single = cls.extract_raw_code(content, user_level=user_level)
+        return [single] if single else []
+
+    @classmethod
+    def parse_all_eligible_codes(
+        cls,
+        content: str,
+        message_id: int,
+        channel_id: int,
+        guild_id: int,
+        author_id: int,
+        received_at: Optional[float] = None,
+        user_level: Optional[int] = None,
+    ) -> List[ParsedCode]:
+        t0 = received_at or time.time()
+        codes = cls.extract_eligible_codes(content, user_level=user_level)
+        t1 = time.time()
+        results = []
+        for c in codes:
+            results.append(
+                ParsedCode(
+                    code=c,
+                    message_id=message_id,
+                    channel_id=channel_id,
+                    guild_id=guild_id,
+                    author_id=author_id,
+                    received_at=t0,
+                    parsed_at=t1,
+                    raw_content=content,
+                )
+            )
+        return results
