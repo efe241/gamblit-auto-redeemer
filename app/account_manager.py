@@ -1,4 +1,4 @@
-﻿"""
+"""
 Multi-Account Manager for Gamblit Promo Code Auto-Redeemer.
 Allows adding, managing, and concurrently redeeming promo codes across multiple Gamblit accounts.
 Persists accounts in data/accounts.json.
@@ -52,15 +52,29 @@ class ManagedAccount:
         profile = self.client._profile
         is_auth = profile.is_authenticated if profile else False
         status_text = "Bağlı" if is_auth else ("Bağlantı Yok" if not self.client._connected else "Bağlanıyor...")
+        
+        # Format balance cleanly (e.g. 508.42 WL or DL)
+        raw_bal = profile.balance_dl if profile and profile.balance_dl is not None else 0
+        try:
+            formatted_bal = round(float(raw_bal), 2)
+        except Exception:
+            formatted_bal = raw_bal
+
+        # Dynamic name showing actual username once authenticated
+        display_name = self.name
+        if profile and is_auth and profile.username:
+            if "efe2424" in display_name or "Ana Hesap" in display_name:
+                display_name = f"Ana Hesap ({profile.username})"
+
         return {
             "id": self.id,
-            "name": self.name,
+            "name": display_name,
             "raw_cookies": self.raw_cookies,
             "enabled": self.enabled,
             "username": profile.username if profile and is_auth else status_text,
             "is_authenticated": is_auth,
             "is_connected": self.client._connected,
-            "balance_dl": profile.balance_dl if profile else 0,
+            "balance_dl": formatted_bal,
             "level": profile.level if profile else 1,
         }
 
