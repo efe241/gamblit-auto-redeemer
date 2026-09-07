@@ -692,7 +692,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 // Account
                 document.getElementById('acc-name').innerText = data.account.username || 'Giriş Yapılmadı';
-                document.getElementById('acc-balance').innerText = data.account.balance_dl || 0;
+                const rawBal = parseFloat(data.account.balance_dl || 0);
+                // Gamblit returns balance in WL (100 WL = 1 DL). Display as DL (e.g. 5.08 DL)
+                const dlBal = (rawBal / 100.0).toFixed(2);
+                document.getElementById('acc-balance').innerText = dlBal;
                 document.getElementById('acc-level').innerText = data.account.level || '1';
 
                 // Metrics
@@ -779,11 +782,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                             const toggleBtn = a.enabled
                                 ? `<button class="btn-alt" type="button" style="padding: 4px 8px; font-size: 11px;" onclick="toggleAccount('${a.id}')">Durdur</button>`
                                 : `<button class="btn-accent" type="button" style="padding: 4px 8px; font-size: 11px;" onclick="toggleAccount('${a.id}')">Aktif Et</button>`;
+                            const rawAccBal = parseFloat(a.balance_dl || 0);
+                            const dlAccBal = (rawAccBal / 100.0).toFixed(2);
                             accHtml += `<tr>
                                 <td><strong>${a.name}</strong></td>
                                 <td style="font-family: monospace;">${a.username || '--'}</td>
                                 <td>${statusBadge}</td>
-                                <td><strong style="color: #3fb950;">${a.balance_dl || 0}</strong> DL</td>
+                                <td><strong style="color: #3fb950;">${dlAccBal}</strong> DL <span style="font-size: 10px; color: #64748b;">(${Math.round(rawAccBal)} WL)</span></td>
                                 <td>Level ${a.level || 1}</td>
                                 <td style="display: flex; gap: 6px;">
                                     ${toggleBtn}
