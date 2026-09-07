@@ -87,6 +87,10 @@ class DiscordCodeListener(commands.Bot):
         self.metrics.record_received()
 
         # 4. Parse Code (Hot Path T1)
+        user_level = None
+        if self.gamblit_client and self.gamblit_client._profile:
+            user_level = self.gamblit_client._profile.level
+
         parsed = CodeParser.parse_message(
             content=message.content,
             message_id=message.id,
@@ -94,6 +98,7 @@ class DiscordCodeListener(commands.Bot):
             guild_id=message.guild.id if message.guild else 0,
             author_id=message.author.id,
             received_at=t0,
+            user_level=user_level,
         )
 
         if not parsed:
