@@ -21,119 +21,251 @@ from app.metrics import MetricsTracker
 from app.queue import RedeemQueue
 from app.captcha_pool import CaptchaPool
 from app.models import ParsedCode, RedeemLatency
+from app.logging_config import get_recent_logs
 
 HTML_TEMPLATE = """<!DOCTYPE html>
+
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gamblit Auto-Redeemer Pro Paneli</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0d1117;
-            --card-bg: #161b22;
-            --border: #30363d;
-            --accent: #58a6ff;
-            --green: #2ea043;
-            --red: #f85149;
-            --yellow: #d29922;
-            --purple: #bc8cff;
-            --text: #c9d1d9;
-            --text-bright: #f0f6fc;
+            --bg: #07090e;
+            --bg-surface: #0c1017;
+            --card-bg: rgba(16, 22, 34, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-hover: rgba(23, 32, 48, 0.9);
+            --border: #1a2332;
+            --border-glow: rgba(56, 189, 248, 0.25);
+            --accent: #38bdf8;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+            --accent-glow: rgba(56, 189, 248, 0.2);
+            --green: #10b981;
+            --green-glow: rgba(16, 185, 129, 0.2);
+            --red: #f43f5e;
+            --yellow: #f59e0b;
+            --purple: #a855f7;
+            --text-dim: #64748b;
+            --text: #94a3b8;
+            --text-bright: #f8fafc;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.07) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.07) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0px, transparent 60%);
+            background-attachment: fixed;
             color: var(--text);
-            padding: 24px;
-            max-width: 1240px;
+            padding: 32px 24px 60px 24px;
+            max-width: 1320px;
             margin: auto;
+            -webkit-font-smoothing: antialiased;
         }
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 16px;
-            margin-bottom: 24px;
+            background: rgba(12, 16, 23, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 28px;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
         }
-        h1 { font-size: 22px; color: var(--text-bright); display: flex; align-items: center; gap: 8px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .header-title-box { display: flex; align-items: center; gap: 16px; }
+        .logo-icon {
+            width: 48px; height: 48px;
+            background: var(--accent-gradient);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 0 24px rgba(56, 189, 248, 0.4);
+            flex-shrink: 0;
+        }
+        h1 { font-size: 22px; font-weight: 800; color: var(--text-bright); letter-spacing: -0.5px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 20px; margin-bottom: 24px; }
+        
         .card {
             background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 18px;
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
         }
-        .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 12px; }
-        .metric-val { font-size: 24px; font-weight: 700; color: var(--text-bright); }
+        .card:hover {
+            border-color: rgba(56, 189, 248, 0.25);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+        }
+        .card h2 {
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #94a3b8;
+            margin-bottom: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .metric-val {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-bright);
+            letter-spacing: -0.5px;
+            font-family: 'JetBrains Mono', monospace;
+        }
         .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+            letter-spacing: 0.2px;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s ease;
         }
-        .badge-online { background: #23863622; color: #3fb950; border: 1px solid #238636; }
-        .badge-offline { background: #da363322; color: #f85149; border: 1px solid #da3633; }
-        .badge-purple { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff; }
-        .badge-yellow { background: #d2992222; color: #d29922; border: 1px solid #d29922; }
+        .badge-online { 
+            background: rgba(16, 185, 129, 0.12); 
+            color: #34d399; 
+            border: 1px solid rgba(16, 185, 129, 0.35); 
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.15); 
+        }
+        .badge-offline { 
+            background: rgba(244, 63, 94, 0.12); 
+            color: #fb7185; 
+            border: 1px solid rgba(244, 63, 94, 0.35); 
+        }
+        .badge-purple { 
+            background: rgba(168, 85, 247, 0.12); 
+            color: #c084fc; 
+            border: 1px solid rgba(168, 85, 247, 0.35); 
+        }
+        .badge-yellow { 
+            background: rgba(245, 158, 11, 0.12); 
+            color: #fbbf24; 
+            border: 1px solid rgba(245, 158, 11, 0.35); 
+        }
         
         .progress-bar-container {
             width: 100%;
             height: 8px;
-            background: #21262d;
-            border-radius: 4px;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 6px;
             overflow: hidden;
-            margin-top: 8px;
-            margin-bottom: 14px;
+            margin-top: 10px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
         .progress-bar {
             height: 100%;
-            background: #2ea043;
+            background: #10b981;
             width: 0%;
             transition: width 0.5s linear, background-color 0.3s;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
         }
 
-        .form-group { margin-bottom: 14px; }
-        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
+        .form-group { margin-bottom: 16px; }
+        label { 
+            display: block; 
+            font-size: 11px; 
+            font-weight: 700; 
+            margin-bottom: 7px; 
+            color: #94a3b8; 
+            letter-spacing: 0.8px; 
+            text-transform: uppercase; 
+        }
         input, textarea {
             width: 100%;
-            background: #0d1117;
-            border: 1px solid var(--border);
+            background: #090d14;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: var(--text-bright);
-            padding: 10px 12px;
-            border-radius: 6px;
+            padding: 11px 15px;
+            border-radius: 10px;
             font-size: 13px;
             font-family: 'JetBrains Mono', monospace;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
-        input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+        input::placeholder, textarea::placeholder {
+            color: #475569;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 12.5px;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: #0a0f18;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
         button {
-            background: #238636;
+            background: #10b981;
             color: white;
             border: none;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-weight: 600;
+            padding: 11px 20px;
+            border-radius: 10px;
+            font-weight: 700;
             cursor: pointer;
             font-size: 13px;
-            transition: opacity 0.2s;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            justify-content: center;
         }
-        button:hover { opacity: 0.9; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        button.btn-alt { background: #21262d; border: 1px solid var(--border); color: var(--text); }
-        button.btn-alt:hover { background: #30363d; }
-        button.btn-accent { background: #1f6feb; }
-        button.btn-accent:hover { background: #388bfd; }
+        button:hover { 
+            opacity: 0.94; 
+            transform: translateY(-1.5px); 
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3); 
+        }
+        button:active { transform: translateY(0); }
+        button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+        button.btn-alt { 
+            background: rgba(30, 41, 59, 0.7); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            color: var(--text-bright); 
+        }
+        button.btn-alt:hover { 
+            background: rgba(51, 65, 85, 0.85); 
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3); 
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        button.btn-accent { 
+            background: #0284c7; 
+        }
+        button.btn-accent:hover { 
+            background: #0369a1; 
+            box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35); 
+        }
+        button.btn-danger { 
+            background: rgba(244, 63, 94, 0.12); 
+            border: 1px solid rgba(244, 63, 94, 0.35); 
+            color: #fb7185; 
+        }
+        button.btn-danger:hover { 
+            background: #f43f5e; 
+            color: white; 
+            box-shadow: 0 6px 16px rgba(244, 63, 94, 0.3);
+        }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
-        th { color: #8b949e; font-size: 11px; text-transform: uppercase; }
-        .code-cell { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--accent); }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.8px; }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+        .code-cell { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent); }
         
         details summary {
             cursor: pointer;
@@ -141,42 +273,65 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             font-size: 13px;
             font-weight: 600;
             user-select: none;
-            margin-top: 8px;
+            margin-top: 12px;
+            padding: 6px 0;
+            transition: color 0.2s;
         }
+        details summary:hover { color: #7dd3fc; }
         pre.code-box {
-            background: #0d1117;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px;
+            background: #06090f;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 14px 16px;
             font-size: 12px;
             font-family: 'JetBrains Mono', monospace;
-            color: #7ee787;
+            color: #34d399;
             overflow-x: auto;
-            margin-top: 8px;
+            margin-top: 10px;
             white-space: pre-wrap;
+            line-height: 1.5;
         }
 
         #toast {
-            position: fixed; bottom: 20px; right: 20px;
-            background: #1f6feb; color: white; padding: 12px 20px;
-            border-radius: 6px; font-weight: 600; font-size: 13px;
-            display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            position: fixed; bottom: 28px; right: 28px;
+            background: #0284c7; color: white; padding: 13px 24px;
+            border-radius: 10px; font-weight: 600; font-size: 13.5px;
+            display: none; box-shadow: 0 12px 30px rgba(0,0,0,0.5), 0 0 1px 1px rgba(255,255,255,0.1);
             z-index: 9999;
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        @keyframes slideIn {
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #090d14; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
     </style>
 </head>
+
 <body>
     <header>
-        <div>
-            <h1>⚡ Gamblit Auto-Redeemer Pro</h1>
-            <div style="font-size: 12px; color: #8b949e; margin-top: 4px;">Ultra-Düşük Gecikmeli Kod Yakalayıcı & Otomatik hCaptcha Çözücü</div>
+        <div class="header-title-box">
+            <div class="logo-icon">⚡</div>
+            <div>
+                <h1>Gamblit Auto-Redeemer Pro</h1>
+                <div style="font-size: 13px; color: #64748b; margin-top: 3px; font-weight: 500;">Ultra-Düşük Gecikmeli Kod Yakalayıcı & Otomatik hCaptcha Çözücü Havuzu</div>
+            </div>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <span id="dc-badge" class="badge badge-purple">Discord: Bekleniyor</span>
             <span id="solver-badge" class="badge badge-purple">Çözücü: Manuel Mod</span>
             <span id="ws-badge" class="badge badge-offline">WebSocket: Bağlanıyor...</span>
         </div>
     </header>
+
 
     <div class="grid">
         <div class="card">
@@ -203,15 +358,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
         <div class="card">
-            <h2>💳 Çözücü Bakiyeleri</h2>
-            <div style="font-size: 14px; margin-top: 6px;">
-                CapSolver: <strong id="bal-capsolver" style="color: #7ee787;">--</strong> &bull;
-                2Captcha: <strong id="bal-twocaptcha" style="color: #7ee787;">--</strong>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h2>💳 Çözücü Kredileri & Zamanlayıcı</h2>
+                <button class="btn-alt" type="button" style="padding: 3px 8px; font-size: 11px;" onclick="refreshData()" title="Bakiyeleri Güncelle">🔄 Yenile</button>
+            </div>
+            <div style="font-size: 14px; margin-top: 4px;">
+                NoneCap Kalan: <strong id="bal-nonecap" style="color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 15px;">1300 Kredi</strong>
+            </div>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 4px;">
+                CapSolver: <strong id="bal-capsolver" style="color: #7ee787;">--</strong>
             </div>
             <div style="font-size: 12px; color: #8b949e; margin-top: 8px;">
-                Otomatik havuz döngüsü: <strong id="loop-status" style="color: #d29922;">Pasif (API Anahtarı Yok)</strong>
+                Havuz Döngüsü: <strong id="loop-status" style="color: #d29922;">Bekleniyor</strong>
+            </div>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 4px;">
+                Çalışma Aralığı: <strong id="schedule-status" style="color: #58a6ff;">20:25 - 21:00</strong>
             </div>
         </div>
+
+
     </div>
 
     <div class="grid">
@@ -237,7 +402,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <h2>🛡️ hCaptcha Token Havuzu (0ms Yanıt İçin)</h2>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <span style="font-size: 13px; color: #8b949e;">Durum: <strong id="captcha-status" style="color: #f85149;">Havuz Boş</strong></span>
-                <span style="font-size: 12px; font-family: monospace;" id="captcha-timer-text">0 / 100 sn</span>
+                <span style="font-size: 12px; font-family: monospace;" id="captcha-timer-text">0 / 110 sn</span>
             </div>
             <div class="progress-bar-container">
                 <div id="captcha-progress" class="progress-bar"></div>
@@ -265,15 +430,48 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
     </div>
 
+    <!-- Live Action Stream & Activity Console -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h2>⚡ Canlı İşlem Akışı (Anlık Bot & Kod Takibi)</h2>
+            <span style="font-size: 12px; color: #3fb950; display: flex; align-items: center; gap: 6px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3fb950; animation: pulse 1.5s infinite;"></span>
+                Canlı İzleniyor
+            </span>
+        </div>
+        <p style="font-size: 12px; color: #8b949e; margin-bottom: 10px;">
+            Discord'dan yakalanan mesajlar, seviye kodu ayıklama, hCaptcha havuzundan token çekme ve Gamblit'e otomatik fırlatma adımları anlık olarak buraya yansır:
+        </p>
+        <div id="live-console-box" style="
+            background: #090d13;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px 14px;
+            height: 220px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #c9d1d9;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+        ">
+            <div style="color: #8b949e;">[Sistem] Canlı akış terminali hazır. Olaylar bekleniyor...</div>
+        </div>
+    </div>
+
     <!-- Live Codes Table -->
     <div class="card" style="margin-bottom: 24px;">
-        <h2>📜 Son İşlenen Kodlar & Sonuçları</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h2>📜 Son İşlenen Kodlar & Sonuçları</h2>
+            <button class="btn-danger" type="button" style="padding: 5px 12px; font-size: 11px;" onclick="clearAllCodes()">🗑️ Listeyi & İstatistikleri Temizle</button>
+        </div>
         <table>
+
             <thead>
                 <tr>
                     <th>Kod</th>
                     <th>Durum</th>
-                    <th>Mesaj</th>
+                    <th>Mesaj / Sonuç</th>
                     <th>Zaman</th>
                     <th>Gecikme</th>
                 </tr>
@@ -283,6 +481,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </tbody>
         </table>
     </div>
+
 
     <!-- Multi-Account Manager Card -->
     <div class="card" style="margin-bottom: 24px;">
@@ -336,8 +535,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <form id="settings-form">
             <div class="grid" style="margin-bottom: 0;">
                 <div class="form-group">
-                    <label>DISCORD BOT TOKEN</label>
-                    <input type="password" id="cfg-token" placeholder="Bot tokenini gir">
+                    <label>DISCORD HESAP / BOT TOKENİ (User & Bot Destekli)</label>
+                    <input type="password" id="cfg-token" placeholder="Discord hesap veya bot tokenini girin (MTUz...)">
                 </div>
                 <div class="form-group">
                     <label>DISCORD KANAL ID (#codes)</label>
@@ -348,18 +547,71 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <input type="text" id="cfg-guild" placeholder="Sunucu ID">
                 </div>
             </div>
+
             <div class="grid" style="margin-bottom: 0;">
                 <div class="form-group">
-                    <label>CAPSOLVER API KEY (Otomatik Çözüm)</label>
-                    <input type="password" id="cfg-capsolver" placeholder="CapSolver API anahtarın">
+                    <label>NONECAP API KEY (1300 Bedava Kredi - Aktif)</label>
+                    <input type="password" id="cfg-nonecap" placeholder="nc_live_...">
                 </div>
                 <div class="form-group">
-                    <label>2CAPTCHA API KEY (Yedek Çözüm)</label>
-                    <input type="password" id="cfg-twocaptcha" placeholder="2Captcha API anahtarın">
+                    <label>CAPSOLVER API KEY (Yedek Çözücü)</label>
+                    <input type="password" id="cfg-capsolver" placeholder="CapSolver API anahtarın">
                 </div>
             </div>
+            <div class="grid" style="margin-bottom: 0;">
+                <div class="form-group">
+                    <label>ÇALIŞMA SAATİ BAŞLANGIÇ (Örn: 20:25)</label>
+                    <input type="text" id="cfg-sched-start" placeholder="20:25">
+                </div>
+                <div class="form-group">
+                    <label>ÇALIŞMA SAATİ BİTİŞ (Örn: 21:00)</label>
+                    <input type="text" id="cfg-sched-end" placeholder="21:00">
+                </div>
+            </div>
+
             <div class="form-group">
-                <label>GAMBLIT ÇEREZLERİ (Cookie Header)</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="margin-bottom: 0;">GAMBLIT ÇEREZLERİ (Cookie Header)</label>
+                    <span style="font-size: 11px; color: var(--accent); cursor: pointer;" onclick="toggleAuthBridgeGuide()">⚡ 1-Tıkla Otomatik Aktarma (Kolay Yöntem)</span>
+                </div>
+
+                <!-- 1-Click Fast Sync Helper Box -->
+                <div id="auth-bridge-guide" style="display: block; background: rgba(14, 21, 33, 0.85); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;">
+                    <div style="font-size: 12.5px; font-weight: 700; color: var(--text-bright); display: flex; align-items: center; gap: 8px;">
+                        <span>🚀</span> F12'de Çerez Aramaya Son! Oturumunu 1-Tıkla Bota Aktar:
+                    </div>
+                    
+                    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="font-size: 12px; color: var(--text);">
+                            <strong>Yöntem A (Yer İşareti / Buton - En Kolayı):</strong> Aşağıdaki mavi butonu fareyle tutup tarayıcının <strong>Yer İşaretleri (Sık Kullanılanlar)</strong> çubuğuna sürükleyip bırak. Ardından <a href="https://gamblit.net" target="_blank" style="color: var(--accent); font-weight: 600;">gamblit.net</a> sayfasına girip bu yer işaretine tıkla! Oturumun anında bota bağlanır:
+                        </div>
+                        <div style="margin: 4px 0;">
+                            <a id="auth-bookmarklet-link" href="#" style="
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 6px;
+                                background: linear-gradient(135deg, #0284c7 0%, #6366f1 100%);
+                                color: white;
+                                padding: 6px 14px;
+                                border-radius: 8px;
+                                font-size: 12px;
+                                font-weight: 700;
+                                text-decoration: none;
+                                cursor: grab;
+                                box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+                            " title="Bu butonu tarayıcının Yer İşaretleri çubuğuna sürükle!">⭐ Gamblit Hesabı Bağla (Yer İşaretine Sürükle)</a>
+                        </div>
+
+                        <div style="font-size: 12px; color: var(--text); margin-top: 6px;">
+                            <strong>Yöntem B (Tarayıcı Konsolu - 2 Saniye):</strong> <a href="https://gamblit.net" target="_blank" style="color: var(--accent); font-weight: 600;">gamblit.net</a> sayfasındayken <strong>F12</strong> tuşuna bas, <strong>Console</strong> sekmesine şu tek satırlık kodu yapıştırıp Enter'a bas:
+                        </div>
+                        <pre class="code-box" id="auth-bridge-snippet" style="margin-top: 4px; padding: 10px 12px; font-size: 11.5px;"></pre>
+                        <div>
+                            <button class="btn-alt" type="button" style="font-size: 11px; padding: 6px 12px;" onclick="copyAuthSnippet()">📋 Giriş Kodunu Kopyala</button>
+                        </div>
+                    </div>
+                </div>
+
                 <textarea id="cfg-cookies" rows="3" placeholder="_iidt=...; cf_clearance=...; sid=..."></textarea>
             </div>
             <button type="submit">💾 Ayarları Kaydet & Yenile</button>
@@ -405,22 +657,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     dcb.innerText = 'Discord: Çevrimdışı';
                 }
 
-                // Solver Badge & Balances
+                // Solver Badge & Balances & Schedule
                 const sBadge = document.getElementById('solver-badge');
                 sBadge.innerText = 'Çözücü: ' + data.captcha.active_solver;
-                if (data.captcha.active_solver.includes('CapSolver') || data.captcha.active_solver.includes('2Captcha')) {
-                    sBadge.className = 'badge badge-online';
-                    document.getElementById('loop-status').innerText = 'Aktif (Arkaplanda Sürekli Token Taze Tutulur)';
-                    document.getElementById('loop-status').style.color = '#3fb950';
+                const hasProvider = data.captcha.active_solver.includes('NoneCap') || data.captcha.active_solver.includes('CapSolver') || data.captcha.active_solver.includes('2Captcha');
+                const inSched = data.schedule ? data.schedule.in_schedule : true;
+                const schedStr = (data.schedule ? `${data.schedule.start} - ${data.schedule.end}` : '20:25 - 21:00');
+                
+                const schedElem = document.getElementById('schedule-status');
+                if (schedElem) {
+                    schedElem.innerText = `${schedStr} (${inSched ? 'Şu An Aktif' : 'Şu An Uykuda'})`;
+                    schedElem.style.color = inSched ? '#3fb950' : '#8b949e';
+                }
+
+                if (hasProvider) {
+                    sBadge.className = inSched ? 'badge badge-online' : 'badge badge-yellow';
+                    if (inSched) {
+                        document.getElementById('loop-status').innerText = 'Aktif (Saat Aralığında Token Taze Tutuluyor)';
+                        document.getElementById('loop-status').style.color = '#3fb950';
+                    } else {
+                        document.getElementById('loop-status').innerText = 'Uykuda (Saat Dışı - Kredi Harcanmıyor)';
+                        document.getElementById('loop-status').style.color = '#d29922';
+                    }
                 } else {
                     sBadge.className = 'badge badge-purple';
-                    document.getElementById('loop-status').innerText = 'Pasif (API Anahtarı Tanımlı Değil)';
-                    document.getElementById('loop-status').style.color = '#d29922';
+                    document.getElementById('loop-status').innerText = 'Pasif (API Anahtarı Yok)';
+                    document.getElementById('loop-status').style.color = '#f85149';
                 }
 
                 const bal = data.captcha.balances || {};
+                document.getElementById('bal-nonecap').innerText = bal.nonecap || 'Bağlı Değil';
                 document.getElementById('bal-capsolver').innerText = bal.capsolver !== null ? '$' + bal.capsolver : 'Bağlı Değil';
-                document.getElementById('bal-twocaptcha').innerText = bal.twocaptcha !== null ? '$' + bal.twocaptcha : 'Bağlı Değil';
+
 
                 // Account
                 document.getElementById('acc-name').innerText = data.account.username || 'Giriş Yapılmadı';
@@ -442,10 +710,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 if (data.captcha.valid && rem > 0) {
                     cStatus.innerText = 'HAZIR (' + Math.round(rem) + 's kaldı)';
                     cStatus.style.color = '#3fb950';
-                    const pct = Math.min(100, Math.round((rem / 100.0) * 100));
+                    const pct = Math.min(100, Math.round((rem / 110.0) * 100));
                     pBar.style.width = pct + '%';
                     pBar.style.backgroundColor = rem < 20 ? '#d29922' : '#2ea043';
-                    tText.innerText = Math.round(rem) + ' / 100 sn';
+                    tText.innerText = Math.round(rem) + ' / 110 sn';
                 } else if (data.captcha.is_solving) {
                     cStatus.innerText = 'Çözülüyor...';
                     cStatus.style.color = '#58a6ff';
@@ -457,6 +725,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     cStatus.style.color = '#f85149';
                     pBar.style.width = '0%';
                     tText.innerText = '0 sn';
+                }
+
+                // Live Activity Console
+                if (data.live_logs && data.live_logs.length > 0) {
+                    const cBox = document.getElementById('live-console-box');
+                    let logHtml = '';
+                    for (const l of data.live_logs) {
+                        let color = '#c9d1d9';
+                        if (l.level === 'WARNING') color = '#d29922';
+                        else if (l.level === 'ERROR') color = '#f85149';
+                        else if (l.message.includes('[KOD YAKALANDI]') || l.message.includes('SUCCESS') || l.message.includes('✔')) color = '#3fb950';
+                        else if (l.message.includes('hCaptcha') || l.message.includes('token') || l.message.includes('TOKEN')) color = '#58a6ff';
+                        else if (l.message.includes('Redeem') || l.message.includes('Kod')) color = '#e3b341';
+                        
+                        logHtml += `<div><span style="color:#6e7681;">[${l.time}]</span> <span style="color:${color};">${l.message}</span></div>`;
+                    }
+                    const isScrolledToBottom = cBox.scrollHeight - cBox.clientHeight <= cBox.scrollTop + 30;
+                    cBox.innerHTML = logHtml;
+                    if (isScrolledToBottom) {
+                        cBox.scrollTop = cBox.scrollHeight;
+                    }
                 }
 
                 // Table
@@ -475,6 +764,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     }
                     document.getElementById('codes-tbody').innerHTML = html;
                 }
+
 
                 // Accounts Table
                 if (data.accounts && data.accounts.accounts) {
@@ -504,7 +794,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     }
                     document.getElementById('accounts-tbody').innerHTML = accHtml;
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.error("refreshData error:", e);
+            }
         }
 
         async function loadConfig() {
@@ -514,10 +806,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('cfg-token').value = data.discord_token || '';
                 document.getElementById('cfg-channel').value = data.discord_channel_id || '';
                 document.getElementById('cfg-guild').value = data.discord_guild_id || '';
+                document.getElementById('cfg-nonecap').value = data.nonecap_api_key || '';
                 document.getElementById('cfg-capsolver').value = data.capsolver_api_key || '';
-                document.getElementById('cfg-twocaptcha').value = data.twocaptcha_api_key || '';
                 document.getElementById('cfg-cookies').value = data.raw_cookies || '';
-            } catch(e) {}
+                document.getElementById('cfg-sched-start').value = data.schedule_start || '20:25';
+                document.getElementById('cfg-sched-end').value = data.schedule_end || '21:00';
+            } catch(e) {
+                console.error("loadConfig error:", e);
+            }
         }
 
         document.getElementById('settings-form').addEventListener('submit', async (e) => {
@@ -526,9 +822,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 discord_token: document.getElementById('cfg-token').value,
                 discord_channel_id: document.getElementById('cfg-channel').value,
                 discord_guild_id: document.getElementById('cfg-guild').value,
+                nonecap_api_key: document.getElementById('cfg-nonecap').value,
                 capsolver_api_key: document.getElementById('cfg-capsolver').value,
-                twocaptcha_api_key: document.getElementById('cfg-twocaptcha').value,
-                raw_cookies: document.getElementById('cfg-cookies').value
+                raw_cookies: document.getElementById('cfg-cookies').value,
+                schedule_enabled: true,
+                schedule_start: document.getElementById('cfg-sched-start').value.trim() || '20:25',
+                schedule_end: document.getElementById('cfg-sched-end').value.trim() || '21:00'
             };
             try {
                 const res = await fetch('/api/config', {
@@ -544,6 +843,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 }
             } catch(e) {}
         });
+
 
         async function triggerAutoSolve() {
             const btn = document.getElementById('btn-auto-solve');
@@ -616,6 +916,34 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
+        function toggleAuthBridgeGuide() {
+            const guide = document.getElementById('auth-bridge-guide');
+            guide.style.display = guide.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function updateAuthBridgeSnippet() {
+            const host = window.location.origin;
+            const scriptBody = `(() => { const c = document.cookie; if (!c) { alert('Hata: Gamblit oturum çerezi bulunamadı! Giriş yaptığından emin ol.'); return; } fetch("${host}/api/auth/import", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({cookies: c}) }).then(r => r.json()).then(d => { if (d.status === 'ok') { alert('✅ TEBRİKLER! Gamblit hesabı (' + (d.username || 'Aktif') + ') bota bağlandı!'); console.log('%c[✔] GAMBLIT OTURUMU BOTA AKTARILDI!', 'background:#00ff88; color:#000; font-weight:bold; font-size:14px; padding:4px;'); } else { alert('Hata: ' + (d.error || 'Aktarılamadı')); } }).catch(e => alert('Bot paneline ulaşılamadı: ' + e)); })();`;
+            
+            const el = document.getElementById('auth-bridge-snippet');
+            if (el) el.innerText = scriptBody;
+
+            const bm = document.getElementById('auth-bookmarklet-link');
+            if (bm) {
+                bm.href = "javascript:" + encodeURIComponent(scriptBody);
+            }
+        }
+
+        function copyAuthSnippet() {
+            updateAuthBridgeSnippet();
+            const text = document.getElementById('auth-bridge-snippet').innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("📋 Gamblit giriş kodu kopyalandı! F12 Console sekmesine yapıştırıp Enter'a bas.");
+            }).catch(() => {
+                showToast("Kopyalama başarısız", true);
+            });
+        }
+
         function updateBridgeSnippet() {
             const host = window.location.origin;
             const snippet = `(() => { const send = (t) => { if (!t) return; fetch("${host}/api/captcha", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token: t}) }).then(() => console.log("%c[✔] TOKEN BOTA AKTARILDI! HAVUZ DOLDU!", "background: #00ff88; color: #000; font-weight: bold; font-size: 14px; padding: 4px;")).catch(e => console.error("Bot baglanti hatasi:", e)); }; for (let i = 0; i < 5; i++) { try { const ex = hcaptcha.getResponse(i); if (ex) { send(ex); return; } } catch(e) {} } for (let i = 0; i < 5; i++) { try { hcaptcha.execute(i, { async: true }).then(res => { const t = (typeof res === 'object' && res ? res.response : res) || hcaptcha.getResponse(i); send(t); }); break; } catch(e) {} } })();`;
@@ -686,7 +1014,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             } catch(e) {}
         }
 
+        async function clearAllCodes() {
+            if (!confirm('Tüm geçmiş kodları ve hata istatistiklerini sıfırlamak istiyor musunuz?')) return;
+            try {
+                const res = await fetch('/api/codes/clear', { method: 'POST' });
+                if (res.ok) {
+                    showToast('🧹 Kod listesi ve istatistikler sıfırlandı!');
+                    document.getElementById('codes-tbody').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #8b949e;">Henüz işlenen kod yok.</td></tr>';
+                    refreshData();
+                } else {
+                    showToast('Temizleme başarısız', true);
+                }
+            } catch(e) {
+                showToast('Hata: ' + e, true);
+            }
+        }
+
+
         updateBridgeSnippet();
+        updateAuthBridgeSnippet();
         refreshData();
         loadConfig();
         setInterval(refreshData, 3000);
@@ -745,11 +1091,75 @@ class WebPanel:
         self.app.router.add_post("/api/redeem", self.handle_manual_redeem)
         self.app.router.add_post("/api/captcha", self.handle_inject_captcha)
         self.app.router.add_options("/api/captcha", self.handle_cors_preflight)
+        self.app.router.add_post("/api/auth/import", self.handle_import_auth)
+        self.app.router.add_options("/api/auth/import", self.handle_cors_preflight)
         self.app.router.add_post("/api/captcha/solve", self.handle_solve_now)
         self.app.router.add_get("/api/accounts", self.handle_get_accounts)
         self.app.router.add_post("/api/accounts", self.handle_add_account)
         self.app.router.add_delete("/api/accounts/{id}", self.handle_remove_account)
         self.app.router.add_post("/api/accounts/{id}/toggle", self.handle_toggle_account)
+        self.app.router.add_post("/api/codes/clear", self.handle_clear_codes)
+
+    async def handle_import_auth(self, request: web.Request) -> web.Response:
+        """1-Click import cookies directly from browser bookmarklet or console snippet."""
+        try:
+            data = await request.json()
+            raw_cookies = str(data.get("cookies", "")).strip()
+            if not raw_cookies:
+                return web.json_response({"status": "error", "error": "Çerez boş geldi."}, status=400)
+
+            # Update configuration
+            self.config.raw_cookies = raw_cookies
+            self.config._parsed_cookies = None  # force reparse
+
+            # Re-write .env file preserving other settings
+            try:
+                env_path = Path(".env")
+                if env_path.exists():
+                    lines = env_path.read_text(encoding="utf-8").splitlines()
+                    new_lines = []
+                    found = False
+                    for line in lines:
+                        if line.startswith("GAMBLIT_COOKIES="):
+                            new_lines.append(f"GAMBLIT_COOKIES={raw_cookies}")
+                            found = True
+                        else:
+                            new_lines.append(line)
+                    if not found:
+                        new_lines.append(f"GAMBLIT_COOKIES={raw_cookies}")
+                    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+            except Exception as e:
+                pass
+
+            # Re-authenticate Gamblit client immediately
+            if self.client._connected:
+                await self.client.close()
+            
+            connected = await self.client.connect_ws()
+            profile = await self.client.get_profile()
+
+            username = profile.username if profile.is_authenticated else "Bağlanıyor"
+            return web.json_response({
+                "status": "ok",
+                "authenticated": profile.is_authenticated,
+                "username": username,
+                "balance_dl": profile.balance_dl,
+            })
+        except Exception as e:
+            return web.json_response({"status": "error", "error": str(e)}, status=500)
+
+    async def handle_clear_codes(self, request: web.Request) -> web.Response:
+        try:
+            async with self.db._connection.cursor() as cursor:
+                await cursor.execute("DELETE FROM codes")
+                await cursor.execute("DELETE FROM events")
+                await self.db._connection.commit()
+            if self.metrics:
+                self.metrics.reset()
+            return web.json_response({"status": "cleared"})
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
 
     async def handle_get_accounts(self, request: web.Request) -> web.Response:
         if self.account_manager:
@@ -796,15 +1206,27 @@ class WebPanel:
         try:
             async with self.db._connection.cursor() as cursor:
                 await cursor.execute(
-                    "SELECT code, status, latency_ms, processed_at, received_at FROM codes ORDER BY id DESC LIMIT 10"
+                    "SELECT code, status, latency_ms, processed_at, received_at, response FROM codes ORDER BY id DESC LIMIT 15"
                 )
                 rows = await cursor.fetchall()
-                recent = [dict(r) for r in rows]
+                for r in rows:
+                    item = dict(r)
+                    msg = ""
+                    if item.get("response"):
+                        try:
+                            parsed_resp = json.loads(item["response"])
+                            msg = parsed_resp.get("message") or parsed_resp.get("error") or str(parsed_resp)
+                        except Exception:
+                            msg = str(item["response"])
+                    item["message"] = msg
+                    recent.append(item)
         except Exception:
             pass
 
         active_solver = "Manuel Mod"
-        if self.captcha_pool.capsolver_api_key:
+        if self.captcha_pool.nonecap_api_key:
+            active_solver = "NoneCap (1300 Bedava Kredi)"
+        elif self.captcha_pool.capsolver_api_key:
             active_solver = "CapSolver (Otomatik)"
         elif self.captcha_pool.twocaptcha_api_key:
             active_solver = "2Captcha (Otomatik)"
@@ -814,6 +1236,9 @@ class WebPanel:
             "user": self.gateway_listener.username if self.gateway_listener else "",
             "channel_id": str(self.config.discord_channel_id),
         }
+
+        live_logs = get_recent_logs(limit=40)
+        in_sched = self.config.is_in_schedule()
 
         return web.json_response({
             "authenticated": profile.is_authenticated,
@@ -832,19 +1257,30 @@ class WebPanel:
                 "last_error": self.captcha_pool.last_error,
                 "balances": balances,
             },
+            "schedule": {
+                "enabled": self.config.schedule_enabled,
+                "start": self.config.schedule_start,
+                "end": self.config.schedule_end,
+                "in_schedule": in_sched,
+            },
             "discord": discord_info,
             "recent_codes": recent,
+            "live_logs": live_logs,
             "accounts": self.account_manager.get_summary() if self.account_manager else None,
         })
+
 
     async def handle_get_config(self, request: web.Request) -> web.Response:
         return web.json_response({
             "discord_token": self.config.discord_token,
             "discord_channel_id": str(self.config.discord_channel_id),
             "discord_guild_id": str(self.config.discord_guild_id),
+            "nonecap_api_key": self.config.nonecap_api_key,
             "capsolver_api_key": self.config.capsolver_api_key,
-            "twocaptcha_api_key": self.config.twocaptcha_api_key,
             "raw_cookies": self.config.raw_cookies,
+            "schedule_enabled": self.config.schedule_enabled,
+            "schedule_start": self.config.schedule_start,
+            "schedule_end": self.config.schedule_end,
         })
 
     async def handle_save_config(self, request: web.Request) -> web.Response:
@@ -852,21 +1288,28 @@ class WebPanel:
         token = data.get("discord_token", "").strip()
         channel_id = data.get("discord_channel_id", "0").strip()
         guild_id = data.get("discord_guild_id", "0").strip()
+        nonecap_key = data.get("nonecap_api_key", "").strip()
         capsolver_key = data.get("capsolver_api_key", "").strip()
-        twocaptcha_key = data.get("twocaptcha_api_key", "").strip()
         raw_cookies = data.get("raw_cookies", "").strip()
+        sched_enabled = bool(data.get("schedule_enabled", True))
+        sched_start = data.get("schedule_start", "20:25").strip()
+        sched_end = data.get("schedule_end", "21:00").strip()
+
 
         # Update in-memory config
         self.config.discord_token = token
         self.config.discord_channel_id = int(channel_id or 0)
         self.config.discord_guild_id = int(guild_id or 0)
+        self.config.nonecap_api_key = nonecap_key
         self.config.capsolver_api_key = capsolver_key
-        self.config.twocaptcha_api_key = twocaptcha_key
         self.config.raw_cookies = raw_cookies
+        self.config.schedule_enabled = sched_enabled
+        self.config.schedule_start = sched_start
+        self.config.schedule_end = sched_end
 
         # Update captcha pool keys
+        self.captcha_pool.nonecap_api_key = nonecap_key
         self.captcha_pool.capsolver_api_key = capsolver_key
-        self.captcha_pool.twocaptcha_api_key = twocaptcha_key
 
         # Save to .env
         env_content = f"""# Gamblit Promo Code Auto-Redeemer Configuration
@@ -878,8 +1321,12 @@ GAMBLIT_BASE_URL={self.config.gamblit_base_url}
 GAMBLIT_COOKIES={raw_cookies}
 GAMBLIT_USER_AGENT={self.config.gamblit_user_agent}
 
+NONECAP_API_KEY={nonecap_key}
 CAPSOLVER_API_KEY={capsolver_key}
-TWOCAPTCHA_API_KEY={twocaptcha_key}
+
+SCHEDULE_ENABLED={"true" if sched_enabled else "false"}
+SCHEDULE_START={sched_start}
+SCHEDULE_END={sched_end}
 
 REDEEM_ENDPOINTS={",".join(self.config.redeem_endpoints)}
 CONNECT_TIMEOUT_SEC={self.config.connect_timeout_sec}
@@ -894,8 +1341,9 @@ LOG_FILE={self.config.log_file}
         with open(".env", "w", encoding="utf-8") as f:
             f.write(env_content)
 
+
         # Trigger auto solver loop if keys provided
-        if capsolver_key or twocaptcha_key:
+        if nonecap_key or capsolver_key:
             await self.captcha_pool.start_auto_solver_loop()
 
         # Reconnect gateway listener if token/channel configured
@@ -927,6 +1375,10 @@ LOG_FILE={self.config.log_file}
 
         latency = RedeemLatency(t0_discord_received=time.time())
         result = await self.client.redeem_code(code, latency=latency, captcha_token=token)
+
+        # Invalidate used token so it's not reused
+        if not captcha_override and token:
+            self.captcha_pool.invalidate()
 
         await self.db.update_redeem_result(result)
         self.metrics.record_redeem(result)

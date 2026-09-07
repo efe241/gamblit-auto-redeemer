@@ -53,6 +53,14 @@ class MetricsTracker:
             f"Total: {latency.total_ms:.2f} ms"
         )
 
+    def reset(self):
+        self.total_received = 0
+        self.total_parsed = 0
+        self.total_success = 0
+        self.total_failed = 0
+        self.recent_latencies.clear()
+        self.last_result = None
+
     def summary(self) -> Dict[str, Any]:
         return {
             "uptime_seconds": round(self.uptime_seconds, 1),
@@ -64,3 +72,4 @@ class MetricsTracker:
             "last_code": self.last_result.code if self.last_result else None,
             "last_status": self.last_result.status.value if self.last_result else None,
         }
+

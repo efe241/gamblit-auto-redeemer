@@ -67,4 +67,18 @@ def create_release():
     print(f"Müşteriye direkt gönderebileceğin dosya: {zip_filename}")
 
 if __name__ == "__main__":
-    create_release()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--copy-auth":
+        import subprocess
+        js = "fetch('http://localhost:5050/api/auth/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:document.cookie})}).then(r=>r.json()).then(d=>alert(d.status==='ok'?'Giris Basarili: '+d.username:'Hata: '+d.error)).catch(e=>alert('Hata: '+e));"
+        p = subprocess.Popen('clip', stdin=subprocess.PIPE, shell=True)
+        p.communicate(input=js.encode('utf-8'))
+        print("CLIP_COPIED")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--copy-token":
+        import subprocess
+        js = "(() => { const send = (t) => { if (!t) return; fetch('http://localhost:5050/api/captcha', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: t}) }).then(() => { alert('Token Bota Aktarildi! Havuz Doldu.'); }).catch(e => alert('Hata: ' + e)); }; for (let i = 0; i < 5; i++) { try { const ex = hcaptcha.getResponse(i); if (ex) { send(ex); return; } } catch(e) {} } for (let i = 0; i < 5; i++) { try { hcaptcha.execute(i, { async: true }).then(res => { const t = (typeof res === 'object' && res ? res.response : res) || hcaptcha.getResponse(i); send(t); }); break; } catch(e) {} } })();"
+        p = subprocess.Popen('clip', stdin=subprocess.PIPE, shell=True)
+        p.communicate(input=js.encode('utf-8'))
+        print("TOKEN_SNIPPET_COPIED")
+    else:
+        create_release()

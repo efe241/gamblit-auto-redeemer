@@ -56,9 +56,18 @@ class Config:
         default_factory=lambda: float(os.getenv("RATE_LIMIT_BACKOFF_FACTOR", "1.5"))
     )
 
-    # Captcha Solvers (CapSolver / 2Captcha)
+    # Captcha Solvers (NoneCap / CapSolver / 2Captcha)
+    nonecap_api_key: str = field(default_factory=lambda: os.getenv("NONECAP_API_KEY", ""))
     capsolver_api_key: str = field(default_factory=lambda: os.getenv("CAPSOLVER_API_KEY", ""))
     twocaptcha_api_key: str = field(default_factory=lambda: os.getenv("TWOCAPTCHA_API_KEY", ""))
+
+    # Operating Schedule Window (e.g. 20:25 - 21:00)
+    schedule_enabled: bool = field(
+        default_factory=lambda: os.getenv("SCHEDULE_ENABLED", "true").lower() in ("true", "1", "yes")
+    )
+    schedule_start: str = field(default_factory=lambda: os.getenv("SCHEDULE_START", "20:25"))
+    schedule_end: str = field(default_factory=lambda: os.getenv("SCHEDULE_END", "21:00"))
+
 
     # Database & Logs
     database_path: str = field(
@@ -92,6 +101,25 @@ class Config:
                 cookies[k.strip()] = v.strip()
         return cookies
 
+    def is_in_schedule(self) -> bool:
+        """Checks if current time falls within schedule_start and schedule_end (HH:MM)."""
+        if not self.schedule_enabled:
+            return True
+        try:
+            import datetime
+            now = datetime.datetime.now().time()
+            s_h, s_m = map(int, self.schedule_start.split(":"))
+            e_h, e_m = map(int, self.schedule_end.split(":"))
+            start_t = datetime.time(s_h, s_m)
+            end_t = datetime.time(e_h, e_m)
+            if start_t <= end_t:
+                return start_t <= now <= end_t
+            else:
+                # Crosses midnight (e.g. 23:00 - 02:00)
+                return now >= start_t or now <= end_t
+        except Exception:
+            return True
+
     def validate_for_production(self) -> List[str]:
         """Returns list of missing/invalid configuration items."""
         errors = []
@@ -102,6 +130,7 @@ class Config:
         if not self.parsed_cookies:
             errors.append("GAMBLIT_COOKIES is empty.")
         return errors
+
 
 
 # Global config instance

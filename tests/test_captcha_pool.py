@@ -18,9 +18,23 @@ async def test_pool_ttl_and_invalidation():
     assert await pool.get_token() == ''
 
 @pytest.mark.asyncio
+async def test_auto_solve_nonecap_priority():
+    cfg = Config()
+    pool = CaptchaPool(config=cfg)
+    pool.nonecap_api_key = 'NC_KEY'
+    pool.capsolver_api_key = 'CS_KEY'
+    with patch.object(pool, 'solve_nonecap', new_callable=AsyncMock) as mock_nc, patch.object(pool, 'solve_capsolver', new_callable=AsyncMock) as mock_cs:
+        mock_nc.return_value = 'NC_TOKEN'
+        token = await pool.auto_solve_once()
+        assert token == 'NC_TOKEN'
+        mock_nc.assert_called_once()
+        mock_cs.assert_not_called()
+
+@pytest.mark.asyncio
 async def test_auto_solve_capsolver_priority():
     cfg = Config()
     pool = CaptchaPool(config=cfg)
+    pool.nonecap_api_key = ''
     pool.capsolver_api_key = 'CS_KEY'
     pool.twocaptcha_api_key = '2C_KEY'
     with patch.object(pool, 'solve_capsolver', new_callable=AsyncMock) as mock_cs, patch.object(pool, 'solve_2captcha', new_callable=AsyncMock) as mock_2c:
@@ -35,6 +49,7 @@ async def test_auto_solve_capsolver_priority():
 async def test_auto_solve_fallback_to_twocaptcha():
     cfg = Config()
     pool = CaptchaPool(config=cfg)
+    pool.nonecap_api_key = ''
     pool.capsolver_api_key = 'CS_KEY'
     pool.twocaptcha_api_key = '2C_KEY'
     with patch.object(pool, 'solve_capsolver', new_callable=AsyncMock) as mock_cs, patch.object(pool, 'solve_2captcha', new_callable=AsyncMock) as mock_2c:

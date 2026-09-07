@@ -29,6 +29,32 @@ class SensitiveDataFilter(logging.Filter):
         return True
 
 
+import collections
+import time
+
+_RECENT_LOGS = collections.deque(maxlen=200)
+
+class RingBufferLogHandler(logging.Handler):
+    """Keeps the last N log lines in memory with timestamp and level for the Web Panel."""
+    def emit(self, record: logging.LogRecord):
+        try:
+            msg = self.format(record)
+            _RECENT_LOGS.append({
+                "time": time.strftime("%H:%M:%S", time.localtime(record.created)),
+                "level": record.levelname,
+                "name": record.name,
+                "message": msg,
+            })
+        except Exception:
+            self.handleError(record)
+
+
+def get_recent_logs(limit: int = 50):
+    """Returns the most recent log entries."""
+    logs = list(_RECENT_LOGS)
+    return logs[-limit:]
+
+
 def setup_logger(
     name: str = "gamblit_redeemer",
     log_level: str = "INFO",
@@ -60,6 +86,13 @@ def setup_logger(
     console_handler.addFilter(sensitive_filter)
     logger.addHandler(console_handler)
 
+    # In-memory Ring Buffer Handler for Web Panel live stream
+    ring_handler = RingBufferLogHandler()
+    ring_formatter = logging.Formatter(fmt="%(message)s")
+    ring_handler.setFormatter(ring_formatter)
+    ring_handler.addFilter(sensitive_filter)
+    logger.addHandler(ring_handler)
+
     # File Handler with Rotation (max 10MB, 5 backups)
     file_handler = RotatingFileHandler(
         filename=str(log_path),
@@ -72,3 +105,4 @@ def setup_logger(
     logger.addHandler(file_handler)
 
     return logger
+

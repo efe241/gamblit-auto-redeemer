@@ -46,14 +46,22 @@ class CodeParser:
     def extract_level_codes(cls, content: str) -> List[Tuple[int, str]]:
         """
         Extracts list of (required_level, code) from multi-level announcement messages.
+        Works across multiline markdown with bolding, emojis, and spaces.
         Sorts descending by level (highest reward first).
         """
-        matches = MULTI_LEVEL_PATTERN.findall(content)
         results = []
-        for level_str, code in matches:
-            code_clean = code.strip().upper()
-            if cls.validate_code_format(code_clean):
-                results.append((int(level_str), code_clean))
+        parts = re.split(r"LEVEL\s*(\d+)\+?", content, flags=re.I)
+        for i in range(1, len(parts), 2):
+            try:
+                lvl = int(parts[i])
+                chunk = parts[i + 1]
+                m_code = re.search(r"(?:use\s+the\s+code|code)\s+\**([A-Za-z0-9_-]{3,32})\**", chunk, re.I)
+                if m_code:
+                    code_clean = m_code.group(1).strip().upper()
+                    if cls.validate_code_format(code_clean):
+                        results.append((lvl, code_clean))
+            except Exception:
+                continue
 
         # Sort by level descending (e.g. Level 175 first, then 150, 125...)
         results.sort(key=lambda x: x[0], reverse=True)

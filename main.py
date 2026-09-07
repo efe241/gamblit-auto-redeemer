@@ -115,9 +115,10 @@ async def run_app():
     from app.web_panel import WebPanel
 
     captcha_pool = CaptchaPool(config=cfg)
+    captcha_pool.nonecap_api_key = cfg.nonecap_api_key or "nc_live_oDTe_-mcq1g6-bf85-5bcUO_wQwcs_5V"
     captcha_pool.capsolver_api_key = cfg.capsolver_api_key
     captcha_pool.twocaptcha_api_key = cfg.twocaptcha_api_key
-    if cfg.capsolver_api_key or cfg.twocaptcha_api_key:
+    if captcha_pool.nonecap_api_key or cfg.capsolver_api_key or cfg.twocaptcha_api_key:
         await captcha_pool.start_auto_solver_loop()
 
     queue = RedeemQueue(db=db)

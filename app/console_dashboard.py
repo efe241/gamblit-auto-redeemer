@@ -87,8 +87,11 @@ class ConsoleDashboard:
                     ws_part = f"{RED}○ WS ÇEVRİMDIŞI{RESET}"
 
                 # Captcha Status
+                in_sched = self.config.is_in_schedule()
                 rem = self.captcha_pool.remaining_seconds
-                if self.captcha_pool.is_token_valid and rem > 0:
+                if not in_sched:
+                    cap_part = f"{DIM}🛡️ UYKUDA ({self.config.schedule_start}-{self.config.schedule_end}){RESET}"
+                elif self.captcha_pool.is_token_valid and rem > 0:
                     c_color = GREEN if rem > 25 else YELLOW
                     cap_part = f"{c_color}🛡️ TOKEN HAZIR ({int(rem)} sn){RESET}"
                 elif self.captcha_pool.is_solving:
@@ -97,12 +100,15 @@ class ConsoleDashboard:
                     cap_part = f"{RED}🛡️ HAVUZ BOŞ (0 sn){RESET}"
 
                 # Solver info
-                if self.captcha_pool.capsolver_api_key:
+                if self.captcha_pool.nonecap_api_key:
+                    solver_name = f"{GREEN}NoneCap{RESET}"
+                elif self.captcha_pool.capsolver_api_key:
                     solver_name = f"{PURPLE}CapSolver{RESET}"
                 elif self.captcha_pool.twocaptcha_api_key:
                     solver_name = f"{PURPLE}2Captcha{RESET}"
                 else:
                     solver_name = f"{DIM}Manuel Mod{RESET}"
+
 
                 # Discord listener info
                 if self.gateway_listener and self.gateway_listener.is_connected:
