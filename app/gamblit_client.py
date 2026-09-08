@@ -314,6 +314,12 @@ class GamblitClient:
             if "CAPTCHA" in err:
                 return RedeemResult(code=code, status=RedeemStatus.RATE_LIMITED, message="Server requested captcha challenge (INVALID_CAPTCHA)", response_data=response, latency=latency)
 
+            if "GEO" in err or "VERIFICATION" in err:
+                log.warning("⚠️ GEO_VERIFICATION detected. Reconnecting WebSocket to pickup verified session...")
+                asyncio.create_task(self.close())
+                asyncio.create_task(self.connect_ws())
+                return RedeemResult(code=code, status=RedeemStatus.INVALID_CODE, message="GEO_VERIFICATION_REQUIRED (Oturum yenileniyor... Tekrar deneyin)", response_data=response, latency=latency)
+
             return RedeemResult(code=code, status=RedeemStatus.INVALID_CODE, message=err or "Invalid code", response_data=response, latency=latency)
 
         except Exception as e:
