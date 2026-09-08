@@ -164,10 +164,19 @@ class GamblitClient:
 
                 elif packet_id == "UserData":
                     if packet.get("username") or packet.get("success"):
+                        # Extract level directly, or calculate from Gamblit XP formula (math.floor(math.sqrt(xp / 4239)))
+                        raw_lvl = packet.get("level")
+                        if not raw_lvl and packet.get("xp"):
+                            try:
+                                import math
+                                raw_lvl = max(1, math.floor(math.sqrt(float(packet.get("xp", 0)) / 4239.0)))
+                            except Exception:
+                                raw_lvl = 1
+
                         self._profile = AccountProfile(
                             username=packet.get("username", "GamblitUser"),
                             user_id=str(packet.get("id", "")),
-                            level=packet.get("level") or 1,
+                            level=int(raw_lvl or 1),
                             balance_dl=packet.get("balances", {}).get("wl", 0),
                             is_authenticated=True,
                             last_checked_at=time.time(),
