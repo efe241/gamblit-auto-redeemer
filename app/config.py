@@ -101,13 +101,20 @@ class Config:
                 cookies[k.strip()] = v.strip()
         return cookies
 
+    @staticmethod
+    def get_tr_now():
+        """Returns current datetime in Turkey timezone (UTC+3)."""
+        import datetime
+        tr_tz = datetime.timezone(datetime.timedelta(hours=3))
+        return datetime.datetime.now(tr_tz)
+
     def is_in_schedule(self) -> bool:
-        """Checks if current time falls within schedule_start and schedule_end (HH:MM)."""
+        """Checks if current time falls within schedule_start and schedule_end (HH:MM) in Turkey Time (UTC+3)."""
         if not self.schedule_enabled:
             return True
         try:
             import datetime
-            now = datetime.datetime.now().time()
+            now = self.get_tr_now().time()
             s_h, s_m = map(int, self.schedule_start.split(":"))
             e_h, e_m = map(int, self.schedule_end.split(":"))
             start_t = datetime.time(s_h, s_m)

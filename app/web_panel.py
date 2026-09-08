@@ -666,7 +666,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 
                 const schedElem = document.getElementById('schedule-status');
                 if (schedElem) {
-                    schedElem.innerText = `${schedStr} (${inSched ? 'Şu An Aktif' : 'Şu An Uykuda'})`;
+                    const curTime = data.schedule && data.schedule.current_time ? ` [TR: ${data.schedule.current_time}]` : '';
+                    schedElem.innerText = `${schedStr} (${inSched ? 'Şu An Aktif 🟢' : 'Şu An Uykuda ⏳'})${curTime}`;
                     schedElem.style.color = inSched ? '#3fb950' : '#8b949e';
                 }
 
@@ -1267,6 +1268,7 @@ class WebPanel:
                 "start": self.config.schedule_start,
                 "end": self.config.schedule_end,
                 "in_schedule": in_sched,
+                "current_time": self.config.get_tr_now().strftime("%H:%M:%S"),
             },
             "discord": discord_info,
             "recent_codes": recent,
