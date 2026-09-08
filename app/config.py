@@ -5,7 +5,7 @@ Loads from environment variables and .env file.
 import os
 import json
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -126,6 +126,50 @@ class Config:
                 return now >= start_t or now <= end_t
         except Exception:
             return True
+
+    def get_schedule_countdown(self) -> Dict[str, Any]:
+        """Calculates exact countdown: time left until waking up (if sleeping) or until ending (if active)."""
+        if not self.schedule_enabled:
+            return {"is_active": True, "countdown_text": "Sürekli Aktif", "remaining_sec": 0}
+        try:
+            import datetime
+            now = self.get_tr_now()
+            s_h, s_m = map(int, self.schedule_start.split(":"))
+            e_h, e_m = map(int, self.schedule_end.split(":"))
+
+            start_dt = now.replace(hour=s_h, minute=s_m, second=0, microsecond=0)
+            end_dt = now.replace(hour=e_h, minute=e_m, second=0, microsecond=0)
+
+            is_active = self.is_in_schedule()
+
+            if is_active:
+                if now > end_dt:
+                    end_dt += datetime.timedelta(days=1)
+                rem = max(0, int((end_dt - now).total_seconds()))
+                hours = rem // 3600
+                mins = (rem % 3600) // 60
+                secs = rem % 60
+                time_str = f"{mins} dk {secs} sn" if hours == 0 else f"{hours} sa {mins} dk"
+                return {
+                    "is_active": True,
+                    "remaining_sec": rem,
+                    "countdown_text": f"Bitmesine: {time_str} kaldı",
+                }
+            else:
+                if now >= start_dt:
+                    start_dt += datetime.timedelta(days=1)
+                rem = max(0, int((start_dt - now).total_seconds()))
+                hours = rem // 3600
+                mins = (rem % 3600) // 60
+                secs = rem % 60
+                time_str = f"{mins} dk {secs} sn" if hours == 0 else f"{hours} sa {mins} dk"
+                return {
+                    "is_active": False,
+                    "remaining_sec": rem,
+                    "countdown_text": f"Uyanmaya: {time_str} kaldı",
+                }
+        except Exception:
+            return {"is_active": True, "countdown_text": "Aktif", "remaining_sec": 0}
 
     def validate_for_production(self) -> List[str]:
         """Returns list of missing/invalid configuration items."""

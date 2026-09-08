@@ -665,6 +665,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 const schedStr = (data.schedule ? `${data.schedule.start} - ${data.schedule.end}` : '20:25 - 21:00');
                 
                 const schedElem = document.getElementById('schedule-status');
+                const countdownInfo = data.schedule && data.schedule.countdown ? data.schedule.countdown : null;
+                const countdownText = countdownInfo ? ` • ⏳ ${countdownInfo.countdown_text}` : '';
+
                 if (schedElem) {
                     const curTime = data.schedule && data.schedule.current_time ? ` [TR: ${data.schedule.current_time}]` : '';
                     schedElem.innerText = `${schedStr} (${inSched ? 'Şu An Aktif 🟢' : 'Şu An Uykuda ⏳'})${curTime}`;
@@ -674,10 +677,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 if (hasProvider) {
                     sBadge.className = inSched ? 'badge badge-online' : 'badge badge-yellow';
                     if (inSched) {
-                        document.getElementById('loop-status').innerText = 'Aktif (Saat Aralığında Token Taze Tutuluyor)';
+                        document.getElementById('loop-status').innerText = `Aktif (Token Taze Tutuluyor)${countdownText}`;
                         document.getElementById('loop-status').style.color = '#3fb950';
                     } else {
-                        document.getElementById('loop-status').innerText = 'Uykuda (Saat Dışı - Kredi Harcanmıyor)';
+                        document.getElementById('loop-status').innerText = `Uykuda (Kredi Harcanmıyor)${countdownText}`;
                         document.getElementById('loop-status').style.color = '#d29922';
                     }
                 } else {
@@ -1269,6 +1272,7 @@ class WebPanel:
                 "end": self.config.schedule_end,
                 "in_schedule": in_sched,
                 "current_time": self.config.get_tr_now().strftime("%H:%M:%S"),
+                "countdown": self.config.get_schedule_countdown(),
             },
             "discord": discord_info,
             "recent_codes": recent,
