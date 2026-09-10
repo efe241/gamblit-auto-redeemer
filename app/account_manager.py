@@ -132,6 +132,37 @@ class AccountManager:
             except Exception as e:
                 log.error(f"Error importing GAMBLIT_ACCOUNTS env: {e}")
 
+        # Auto-import numbered cookie environment variables:
+        # COOKIE1..20, COOKIE_1..20, GAMBLIT_COOKIE1..20, GAMBLIT_COOKIES_1..20
+        for idx in range(1, 21):
+            env_val = (
+                os.getenv(f"COOKIE{idx}")
+                or os.getenv(f"COOKIE_{idx}")
+                or os.getenv(f"GAMBLIT_COOKIE{idx}")
+                or os.getenv(f"GAMBLIT_COOKIE_{idx}")
+                or os.getenv(f"GAMBLIT_COOKIES_{idx}")
+            )
+            if env_val and env_val.strip() and env_val.strip() != "{}":
+                acc_id = f"acc_{idx}"
+                cookie_str = env_val.strip()
+                custom_name = os.getenv(f"NAME{idx}") or os.getenv(f"ACCOUNT_NAME{idx}") or f"Hesap {idx}"
+                if acc_id not in self.accounts:
+                    self.accounts[acc_id] = ManagedAccount(
+                        account_id=acc_id,
+                        name=custom_name,
+                        cookies=cookie_str,
+                        enabled=True,
+                        config=self.config,
+                    )
+                else:
+                    self.accounts[acc_id].raw_cookies = cookie_str
+                    self.accounts[acc_id].config.raw_cookies = cookie_str
+
+        # If acc_1 was loaded and matches acc_default, remove duplicate acc_default
+        if "acc_1" in self.accounts and "acc_default" in self.accounts:
+            if self.accounts["acc_default"].raw_cookies == self.accounts["acc_1"].raw_cookies:
+                del self.accounts["acc_default"]
+
         # Auto-import default account from GAMBLIT_COOKIES if list is still empty
         if not self.accounts and self.config.raw_cookies and self.config.raw_cookies != "{}":
             default_id = "acc_default"

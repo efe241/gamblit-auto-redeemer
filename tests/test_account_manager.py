@@ -53,3 +53,31 @@ def test_gamblit_level_calculation():
 
     # Known live user XP (ragenoisy: ~77,255,941.59 XP -> Level 135)
     assert calculate_gamblit_level(77255941.59) == 135
+
+
+@pytest.mark.asyncio
+async def test_numbered_cookies_env_auto_import(tmp_path, monkeypatch):
+    json_file = str(tmp_path / "accounts_numbered.json")
+    
+    # Set COOKIE1, COOKIE2, COOKIE3 in environment
+    monkeypatch.setenv("COOKIE1", "sid=cookie_acc_1; _vid_t=token1")
+    monkeypatch.setenv("COOKIE2", "sid=cookie_acc_2; _vid_t=token2")
+    monkeypatch.setenv("COOKIE3", "sid=cookie_acc_3; _vid_t=token3")
+    monkeypatch.setenv("NAME1", "Ana Hesap (Tipisteme)")
+    monkeypatch.setenv("NAME2", "Yan Hesap 1")
+
+    cfg = Config()
+    mgr = AccountManager(config=cfg, data_path=json_file)
+
+    assert len(mgr.accounts) == 3
+    assert "acc_1" in mgr.accounts
+    assert "acc_2" in mgr.accounts
+    assert "acc_3" in mgr.accounts
+
+    assert mgr.accounts["acc_1"].name == "Ana Hesap (Tipisteme)"
+    assert mgr.accounts["acc_1"].raw_cookies == "sid=cookie_acc_1; _vid_t=token1"
+    assert mgr.accounts["acc_2"].name == "Yan Hesap 1"
+    assert mgr.accounts["acc_2"].raw_cookies == "sid=cookie_acc_2; _vid_t=token2"
+    assert mgr.accounts["acc_3"].name == "Hesap 3"
+
+    await mgr.close_all()
