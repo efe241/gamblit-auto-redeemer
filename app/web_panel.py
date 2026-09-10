@@ -572,48 +572,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
 
             <div class="form-group">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <label style="margin-bottom: 0;">GAMBLIT ÇEREZLERİ (Cookie Header)</label>
-                    <span style="font-size: 11px; color: var(--accent); cursor: pointer;" onclick="toggleAuthBridgeGuide()">⚡ 1-Tıkla Otomatik Aktarma (Kolay Yöntem)</span>
-                </div>
-
-                <!-- 1-Click Fast Sync Helper Box -->
-                <div id="auth-bridge-guide" style="display: block; background: rgba(14, 21, 33, 0.85); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;">
-                    <div style="font-size: 12.5px; font-weight: 700; color: var(--text-bright); display: flex; align-items: center; gap: 8px;">
-                        <span>🚀</span> F12'de Çerez Aramaya Son! Oturumunu 1-Tıkla Bota Aktar:
-                    </div>
-                    
-                    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
-                        <div style="font-size: 12px; color: var(--text);">
-                            <strong>Yöntem A (Yer İşareti / Buton - En Kolayı):</strong> Aşağıdaki mavi butonu fareyle tutup tarayıcının <strong>Yer İşaretleri (Sık Kullanılanlar)</strong> çubuğuna sürükleyip bırak. Ardından <a href="https://gamblit.net" target="_blank" style="color: var(--accent); font-weight: 600;">gamblit.net</a> sayfasına girip bu yer işaretine tıkla! Oturumun anında bota bağlanır:
-                        </div>
-                        <div style="margin: 4px 0;">
-                            <a id="auth-bookmarklet-link" href="#" style="
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 6px;
-                                background: linear-gradient(135deg, #0284c7 0%, #6366f1 100%);
-                                color: white;
-                                padding: 6px 14px;
-                                border-radius: 8px;
-                                font-size: 12px;
-                                font-weight: 700;
-                                text-decoration: none;
-                                cursor: grab;
-                                box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
-                            " title="Bu butonu tarayıcının Yer İşaretleri çubuğuna sürükle!">⭐ Gamblit Hesabı Bağla (Yer İşaretine Sürükle)</a>
-                        </div>
-
-                        <div style="font-size: 12px; color: var(--text); margin-top: 6px;">
-                            <strong>Yöntem B (Tarayıcı Konsolu - 2 Saniye):</strong> <a href="https://gamblit.net" target="_blank" style="color: var(--accent); font-weight: 600;">gamblit.net</a> sayfasındayken <strong>F12</strong> tuşuna bas, <strong>Console</strong> sekmesine şu tek satırlık kodu yapıştırıp Enter'a bas:
-                        </div>
-                        <pre class="code-box" id="auth-bridge-snippet" style="margin-top: 4px; padding: 10px 12px; font-size: 11.5px;"></pre>
-                        <div>
-                            <button class="btn-alt" type="button" style="font-size: 11px; padding: 6px 12px;" onclick="copyAuthSnippet()">📋 Giriş Kodunu Kopyala</button>
-                        </div>
-                    </div>
-                </div>
-
+                <label>GAMBLIT ÇEREZLERİ (Cookie Header)</label>
                 <textarea id="cfg-cookies" rows="3" placeholder="_iidt=...; cf_clearance=...; sid=..."></textarea>
             </div>
             <button type="submit">💾 Ayarları Kaydet & Yenile</button>
@@ -961,34 +920,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
-        function toggleAuthBridgeGuide() {
-            const guide = document.getElementById('auth-bridge-guide');
-            guide.style.display = guide.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function updateAuthBridgeSnippet() {
-            const host = window.location.origin;
-            const scriptBody = `(() => { const c = document.cookie; if (!c) { alert('Hata: Gamblit oturum çerezi bulunamadı! Giriş yaptığından emin ol.'); return; } fetch("${host}/api/auth/import", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({cookies: c}) }).then(r => r.json()).then(d => { if (d.status === 'ok') { alert('✅ TEBRİKLER! Gamblit hesabı (' + (d.username || 'Aktif') + ') bota bağlandı!'); console.log('%c[✔] GAMBLIT OTURUMU BOTA AKTARILDI!', 'background:#00ff88; color:#000; font-weight:bold; font-size:14px; padding:4px;'); } else { alert('Hata: ' + (d.error || 'Aktarılamadı')); } }).catch(e => alert('Bot paneline ulaşılamadı: ' + e)); })();`;
-            
-            const el = document.getElementById('auth-bridge-snippet');
-            if (el) el.innerText = scriptBody;
-
-            const bm = document.getElementById('auth-bookmarklet-link');
-            if (bm) {
-                bm.href = "javascript:" + encodeURIComponent(scriptBody);
-            }
-        }
-
-        function copyAuthSnippet() {
-            updateAuthBridgeSnippet();
-            const text = document.getElementById('auth-bridge-snippet').innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                showToast("📋 Gamblit giriş kodu kopyalandı! F12 Console sekmesine yapıştırıp Enter'a bas.");
-            }).catch(() => {
-                showToast("Kopyalama başarısız", true);
-            });
-        }
-
         function updateBridgeSnippet() {
             const host = window.location.origin;
             const snippet = `(() => { const send = (t) => { if (!t) return; fetch("${host}/api/captcha", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token: t}) }).then(() => console.log("%c[✔] TOKEN BOTA AKTARILDI! HAVUZ DOLDU!", "background: #00ff88; color: #000; font-weight: bold; font-size: 14px; padding: 4px;")).catch(e => console.error("Bot baglanti hatasi:", e)); }; for (let i = 0; i < 5; i++) { try { const ex = hcaptcha.getResponse(i); if (ex) { send(ex); return; } } catch(e) {} } for (let i = 0; i < 5; i++) { try { hcaptcha.execute(i, { async: true }).then(res => { const t = (typeof res === 'object' && res ? res.response : res) || hcaptcha.getResponse(i); send(t); }); break; } catch(e) {} } })();`;
@@ -1093,7 +1024,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
         updateBridgeSnippet();
-        updateAuthBridgeSnippet();
         refreshData();
         loadConfig();
         setInterval(refreshData, 3000);
