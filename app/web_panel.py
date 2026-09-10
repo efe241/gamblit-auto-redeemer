@@ -714,14 +714,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 const pBar = document.getElementById('captcha-progress');
                 const tText = document.getElementById('captcha-timer-text');
                 const rem = Math.max(0, data.captcha.remaining || 0);
+                const tokenCount = data.captcha.valid_count || 0;
+                const targetCount = data.captcha.target_pool_size || 1;
+
+                const btnWarmup = document.getElementById('btn-warmup');
+                if (btnWarmup && !btnWarmup.disabled) {
+                    btnWarmup.innerText = `🚀 Turbo Doldur (${targetCount} Hesap / ${targetCount} Token)`;
+                }
 
                 if (data.captcha.valid && rem > 0) {
-                    cStatus.innerText = 'HAZIR (' + Math.round(rem) + 's kaldı)';
+                    cStatus.innerText = `HAZIR (${tokenCount} Token - ${Math.round(rem)}s kaldı)`;
                     cStatus.style.color = '#3fb950';
                     const pct = Math.min(100, Math.round((rem / 110.0) * 100));
                     pBar.style.width = pct + '%';
                     pBar.style.backgroundColor = rem < 20 ? '#d29922' : '#2ea043';
-                    tText.innerText = Math.round(rem) + ' / 110 sn';
+                    tText.innerText = `${tokenCount} Token / ${Math.round(rem)} sn`;
                 } else if (data.captcha.is_solving) {
                     cStatus.innerText = 'Çözülüyor...';
                     cStatus.style.color = '#58a6ff';
@@ -729,7 +736,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     pBar.style.backgroundColor = '#1f6feb';
                     tText.innerText = 'İşleniyor';
                 } else {
-                    cStatus.innerText = 'Havuz Boş / Süresi Doldu';
+                    cStatus.innerText = `Havuz Boş (Hedef: ${targetCount} Token)`;
                     cStatus.style.color = '#f85149';
                     pBar.style.width = '0%';
                     tText.innerText = '0 sn';
@@ -1349,6 +1356,8 @@ class WebPanel:
             "captcha": {
                 "valid": self.captcha_pool.is_token_valid,
                 "remaining": self.captcha_pool.remaining_seconds,
+                "valid_count": self.captcha_pool.valid_token_count,
+                "target_pool_size": self.captcha_pool.target_pool_size,
                 "active_solver": active_solver,
                 "is_solving": self.captcha_pool.is_solving,
                 "last_error": self.captcha_pool.last_error,

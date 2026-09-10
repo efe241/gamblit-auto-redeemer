@@ -114,7 +114,7 @@ async def run_app():
     from app.captcha_pool import CaptchaPool
     from app.web_panel import WebPanel
 
-    captcha_pool = CaptchaPool(config=cfg)
+    captcha_pool = CaptchaPool(config=cfg, account_manager=account_manager)
     captcha_pool.nonecap_api_key = cfg.nonecap_api_key
     captcha_pool.capsolver_api_key = cfg.capsolver_api_key
     captcha_pool.twocaptcha_api_key = cfg.twocaptcha_api_key

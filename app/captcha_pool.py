@@ -19,8 +19,9 @@ log = logging.getLogger("gamblit_redeemer.captcha")
 
 
 class CaptchaPool:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, account_manager: Optional[Any] = None):
         self.config = config
+        self.account_manager = account_manager
         self.sitekey = "60fa63fa-7302-4baa-9d64-8b60bc80a6dc"
         self.page_url = config.gamblit_base_url or "https://gamblit.co"
         self.token_ttl_seconds: float = 110.0  # hCaptcha tokens valid ~120s, safe maximum 110s
@@ -33,7 +34,23 @@ class CaptchaPool:
         self.last_error: str = ""
         # Multi-token buffer: list of (created_at, token)
         self._tokens: list = []
-        self.target_pool_size: int = 2
+        self._target_pool_size: int = 1
+
+    @property
+    def target_pool_size(self) -> int:
+        """
+        Dynamically scales the pool size according to the exact number of active accounts!
+        If 1 account exists, only 1 token is prepared (0 waste).
+        If 7 accounts exist, 7 tokens are prepared.
+        """
+        if self.account_manager and hasattr(self.account_manager, "accounts"):
+            active = [a for a in self.account_manager.accounts.values() if a.enabled]
+            return max(1, len(active))
+        return self._target_pool_size
+
+    @target_pool_size.setter
+    def target_pool_size(self, val: int):
+        self._target_pool_size = max(1, int(val))
 
     @property
     def current_token(self) -> Optional[str]:
@@ -116,15 +133,17 @@ class CaptchaPool:
                 return tok
             return None
 
-    async def warm_up_pool(self, count: int = 7) -> int:
+    async def warm_up_pool(self, count: Optional[int] = None) -> int:
         """
         Rapidly solves multiple captchas in parallel (burst mode) to pre-warm the pool for drops.
+        Defaults to exactly the number of active accounts (zero waste).
         """
-        needed = max(0, count - self.valid_token_count)
+        target = count if count is not None and count > 0 else self.target_pool_size
+        needed = max(0, target - self.valid_token_count)
         if needed <= 0:
             return self.valid_token_count
 
-        log.info(f"⚡ [Turbo Warmup] {needed} adet hCaptcha tokenı paralel çözülüyor...")
+        log.info(f"⚡ [Turbo Warmup] {needed} adet hCaptcha tokenı paralel çözülüyor (Aktif Hesap: {target})...")
         tasks = [self.auto_solve_once() for _ in range(needed)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         solved = sum(1 for r in results if isinstance(r, str) and r)
