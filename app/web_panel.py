@@ -413,8 +413,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <input type="text" id="inject-token" placeholder="P0_eyJ... token yapıştır">
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="btn-alt" type="button" onclick="injectCaptcha()">📥 Havuzu Doldur</button>
-                <button class="btn-accent" type="button" id="btn-auto-solve" onclick="triggerAutoSolve()">⚡ Hemen Çözdür</button>
+                <button class="btn-alt" type="button" onclick="injectCaptcha()">📥 Manuel Ekle</button>
+                <button class="btn-accent" type="button" id="btn-auto-solve" onclick="triggerAutoSolve()">⚡ 1 Çözüm Yap</button>
+                <button class="btn-accent" style="background: #059669; border-color: #10b981;" type="button" id="btn-warmup" onclick="triggerWarmup(7)">🚀 Turbo Doldur (7 Token)</button>
             </div>
 
             <details style="margin-top: 14px;">
@@ -872,7 +873,33 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 showToast('❌ İstek hatası: ' + e, true);
             } finally {
                 btn.disabled = false;
-                btn.innerText = '⚡ Hemen Çözdür';
+                btn.innerText = '⚡ 1 Çözüm Yap';
+                refreshData();
+            }
+        }
+
+        async function triggerWarmup(count) {
+            const btn = document.getElementById('btn-warmup');
+            btn.disabled = true;
+            btn.innerText = '⏳ 7 Token Çözülüyor (Paralel)...';
+            showToast('⚡ 7 Token paralel çözülüyor, lütfen 5-10 sn bekleyin...');
+            try {
+                const res = await fetch('/api/captcha/warmup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({count: count || 7})
+                });
+                const data = await res.json();
+                if (data.status === 'ready') {
+                    showToast('🎉 ' + (data.message || '7 Token hazırlandı!'));
+                } else {
+                    showToast('❌ ' + (data.error || 'Warmup başarısız'), true);
+                }
+            } catch(e) {
+                showToast('❌ Hata: ' + e, true);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '🚀 Turbo Doldur (7 Token)';
                 refreshData();
             }
         }
@@ -1120,6 +1147,7 @@ class WebPanel:
         self.app.router.add_post("/api/auth/import", self.handle_import_auth)
         self.app.router.add_options("/api/auth/import", self.handle_cors_preflight)
         self.app.router.add_post("/api/captcha/solve", self.handle_solve_now)
+        self.app.router.add_post("/api/captcha/warmup", self.handle_warmup)
         self.app.router.add_get("/api/accounts", self.handle_get_accounts)
         self.app.router.add_post("/api/accounts", self.handle_add_account)
         self.app.router.add_delete("/api/accounts/{id}", self.handle_remove_account)
@@ -1436,6 +1464,20 @@ LOG_FILE={self.config.log_file}
             return web.json_response({"status": "ready", "token": token[:20] + "..."})
         err_msg = self.captcha_pool.last_error or "Çözüm başarısız veya API anahtarı geçersiz."
         return web.json_response({"status": "failed", "error": err_msg}, status=400)
+
+    async def handle_warmup(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json() if request.can_read_body else {}
+        except Exception:
+            data = {}
+        count = int(data.get("count", 7) or 7)
+        count = max(1, min(10, count))
+        total = await self.captcha_pool.warm_up_pool(count=count)
+        return web.json_response({
+            "status": "ready",
+            "valid_tokens": total,
+            "message": f"Havuzda {total} adet sıcak token hazır bekliyor (0ms gecikme)."
+        })
 
     async def handle_manual_redeem(self, request: web.Request) -> web.Response:
         try:

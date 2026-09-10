@@ -287,22 +287,26 @@ class AccountManager:
                 log.info(f"⚡ [{acc.name}] -> Kod Gönderiliyor: '{code}' (Gereken Level: {req_lvl}+ | Hesap: {acc.level})")
                 lat = RedeemLatency(t0_discord_received=time.time())
 
-                # Step 1: Send redeem request (0ms latency, saves captcha credits)
-                res = await acc.client.redeem_code(code, latency=lat, captcha_token="")
+                # If token is pre-warmed in pool, take it instantly (0.1ms) for zero-latency redeem!
+                token = ""
+                if captcha_pool:
+                    token = await captcha_pool.consume_token() or ""
 
-                # Step 2: On-demand Captcha handling
+                res = await acc.client.redeem_code(code, latency=lat, captcha_token=token)
+
+                # If rejected by captcha and we hadn't sent a token, try fallback solve
                 is_captcha_err = (
                     "CAPTCHA" in res.message.upper()
                     or (res.response_data and "CAPTCHA" in str(res.response_data).upper())
                 )
-                if is_captcha_err and captcha_pool:
-                    log.warning(f"🛡️ [{acc.name}] Captcha engeli ({res.message}). Token havuzundan alınıyor...")
-                    token = await captcha_pool.consume_token()
-                    if not token:
-                        token = await captcha_pool.auto_solve_once()
-                    if token:
+                if is_captcha_err and captcha_pool and not token:
+                    log.warning(f"🛡️ [{acc.name}] Captcha engeli ({res.message}). Yedek token çözülüyor...")
+                    fresh_tok = await captcha_pool.consume_token()
+                    if not fresh_tok:
+                        fresh_tok = await captcha_pool.auto_solve_once()
+                    if fresh_tok:
                         lat_retry = RedeemLatency(t0_discord_received=time.time())
-                        res = await acc.client.redeem_code(code, latency=lat_retry, captcha_token=token)
+                        res = await acc.client.redeem_code(code, latency=lat_retry, captcha_token=fresh_tok)
 
                 acc_results.append({
                     "account_id": acc.id,

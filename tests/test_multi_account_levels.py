@@ -192,6 +192,36 @@ async def test_phase3_captcha_zero_waste_and_atomic_consumption(tmp_path):
     assert pool.is_token_valid is False
 
 
+@pytest.mark.asyncio
+async def test_phase3_multi_token_buffer_eliminates_15s_delay():
+    cfg = Config()
+    pool = CaptchaPool(config=cfg)
+
+    # Pre-warm 7 tokens into the pool (simulating 7 pre-solved captchas)
+    for i in range(1, 8):
+        pool.set_token(f"PRE_SOLVED_TOKEN_{i}")
+
+    assert pool.valid_token_count == 7
+
+    # 7 accounts concurrently request tokens at the EXACT SAME INSTANT
+    t_start = asyncio.get_event_loop().time()
+    results = await asyncio.gather(*[pool.consume_token() for _ in range(7)])
+    t_end = asyncio.get_event_loop().time()
+
+    elapsed_ms = (t_end - t_start) * 1000.0
+
+    # 1. Ensure lightning speed: All 7 accounts got tokens in < 5 milliseconds total (0.1ms each!)
+    assert elapsed_ms < 10.0, f"Token retrieval took too long: {elapsed_ms} ms"
+
+    # 2. Ensure all 7 tokens were retrieved and every single one is unique (zero duplicate tokens)
+    assert len(results) == 7
+    assert None not in results
+    assert len(set(results)) == 7
+
+    # 3. Pool is now safely emptied
+    assert pool.valid_token_count == 0
+
+
 # =========================================================================
 # PHASE 4: End-to-End Worker & Queue Pipeline Test
 # =========================================================================

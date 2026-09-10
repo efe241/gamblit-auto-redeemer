@@ -23,8 +23,6 @@ class CaptchaPool:
         self.config = config
         self.sitekey = "60fa63fa-7302-4baa-9d64-8b60bc80a6dc"
         self.page_url = config.gamblit_base_url or "https://gamblit.co"
-        self.current_token: Optional[str] = None
-        self.token_created_at: float = 0.0
         self.token_ttl_seconds: float = 110.0  # hCaptcha tokens valid ~120s, safe maximum 110s
         self.nonecap_api_key: str = config.nonecap_api_key or ""
         self.capsolver_api_key: str = config.capsolver_api_key or ""
@@ -33,53 +31,105 @@ class CaptchaPool:
         self._lock = asyncio.Lock()
         self.is_solving = False
         self.last_error: str = ""
+        # Multi-token buffer: list of (created_at, token)
+        self._tokens: list = []
+        self.target_pool_size: int = 2
+
+    @property
+    def current_token(self) -> Optional[str]:
+        now = time.time()
+        for t0, tok in self._tokens:
+            if (now - t0) < self.token_ttl_seconds:
+                return tok
+        return None
+
+    @current_token.setter
+    def current_token(self, val: Optional[str]):
+        if val is None:
+            self._tokens.clear()
+        else:
+            self.set_token(val)
+
+    @property
+    def token_created_at(self) -> float:
+        now = time.time()
+        for t0, _ in self._tokens:
+            if (now - t0) < self.token_ttl_seconds:
+                return t0
+        return 0.0
+
+    @token_created_at.setter
+    def token_created_at(self, val: float):
+        pass
 
     def set_token(self, token: str):
         """Stores a fresh solved token in the pool."""
-        self.current_token = token.strip()
-        self.token_created_at = time.time()
-        self.last_error = ""
-        log.info(f"✅ hCaptcha token havuzda hazır (Geçerlilik: ~{int(self.token_ttl_seconds)} sn).")
+        tok = token.strip()
+        if tok:
+            now = time.time()
+            self._tokens = [(t0, t) for t0, t in self._tokens if (now - t0) < self.token_ttl_seconds]
+            self._tokens.append((now, tok))
+            self.last_error = ""
+            log.info(f"✅ hCaptcha token havuza eklendi (Havuzdaki Hazır Token Sayısı: {len(self._tokens)}).")
 
     def invalidate(self):
-        """Invalidates current token so it cannot be used again."""
-        self.current_token = None
-        self.token_created_at = 0.0
-        log.info("hCaptcha tokenı geçersiz kılındı.")
+        """Invalidates all tokens in the pool."""
+        self._tokens.clear()
+        log.info("hCaptcha token havuzu boşaltıldı.")
 
     @property
     def is_token_valid(self) -> bool:
-        if not self.current_token:
-            return False
-        age = time.time() - self.token_created_at
-        return age < self.token_ttl_seconds
+        return self.valid_token_count > 0
+
+    @property
+    def valid_token_count(self) -> int:
+        now = time.time()
+        return sum(1 for t0, _ in self._tokens if (now - t0) < self.token_ttl_seconds)
 
     @property
     def remaining_seconds(self) -> float:
-        if not self.is_token_valid:
-            return 0.0
-        return max(0.0, self.token_ttl_seconds - (time.time() - self.token_created_at))
+        now = time.time()
+        valid_ttls = [self.token_ttl_seconds - (now - t0) for t0, _ in self._tokens if (now - t0) < self.token_ttl_seconds]
+        return max(valid_ttls, default=0.0)
 
     async def get_token(self) -> str:
         """Returns ready-to-use token, or empty string if none available."""
         async with self._lock:
-            if self.is_token_valid and self.current_token:
-                return self.current_token
+            now = time.time()
+            self._tokens = [(t0, tok) for t0, tok in self._tokens if (now - t0) < self.token_ttl_seconds]
+            if self._tokens:
+                return self._tokens[0][1]
             return ""
 
     async def consume_token(self) -> Optional[str]:
         """
         Atomically pops and consumes a valid token from the pool for single-use verification.
         Guarantees that two concurrent accounts will never submit the same token and trigger duplicate rejection.
+        Instant (0.1 ms latency).
         """
         async with self._lock:
-            if self.is_token_valid and self.current_token:
-                tok = self.current_token
-                self.current_token = None
-                self.token_created_at = 0.0
-                log.info("🎯 Havuzdaki hCaptcha tokenı kullanıldı ve tüketildi.")
+            now = time.time()
+            self._tokens = [(t0, tok) for t0, tok in self._tokens if (now - t0) < self.token_ttl_seconds]
+            if self._tokens:
+                _, tok = self._tokens.pop(0)
+                log.info(f"🎯 Havuzdan 1 token tüketildi (0ms). Havuzda Kalan: {len(self._tokens)} token.")
                 return tok
             return None
+
+    async def warm_up_pool(self, count: int = 7) -> int:
+        """
+        Rapidly solves multiple captchas in parallel (burst mode) to pre-warm the pool for drops.
+        """
+        needed = max(0, count - self.valid_token_count)
+        if needed <= 0:
+            return self.valid_token_count
+
+        log.info(f"⚡ [Turbo Warmup] {needed} adet hCaptcha tokenı paralel çözülüyor...")
+        tasks = [self.auto_solve_once() for _ in range(needed)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        solved = sum(1 for r in results if isinstance(r, str) and r)
+        log.info(f"⚡ [Turbo Warmup Tamamlandı] {solved}/{needed} token havuza eklendi! Toplam hazır: {self.valid_token_count}")
+        return self.valid_token_count
 
     async def get_balances(self) -> Dict[str, Any]:
         """Queries current balance for configured solvers."""
@@ -327,7 +377,7 @@ class CaptchaPool:
             self._bg_task = None
 
     async def _pool_maintenance_loop(self):
-        """Keeps token fresh: whenever in schedule and token has < 25s left, triggers background resolve."""
+        """Keeps tokens fresh: whenever in schedule, maintains target_pool_size valid tokens ready in pool."""
         while True:
             try:
                 # Check if we are inside the active schedule window (e.g. 20:25 - 21:00)
@@ -338,9 +388,14 @@ class CaptchaPool:
 
                 has_provider = bool(self.nonecap_api_key or self.capsolver_api_key or self.twocaptcha_api_key)
                 if has_provider and not self.is_solving:
-                    # If expired or expiring in less than 25 seconds, solve fresh token
-                    if not self.is_token_valid or self.remaining_seconds < 25.0:
-                        log.info("Refreshing hCaptcha token in pool ahead of time (schedule active)...")
+                    now = time.time()
+                    async with self._lock:
+                        self._tokens = [(t0, tok) for t0, tok in self._tokens if (now - t0) < self.token_ttl_seconds]
+                        current_count = len(self._tokens)
+
+                    # If below target pool size, resolve fresh token
+                    if current_count < self.target_pool_size:
+                        log.info(f"⚡ [Havuz Hazırlığı] Havuzda {current_count}/{self.target_pool_size} token var. Yeni token çözülüyor...")
                         await self.auto_solve_once()
 
                 await asyncio.sleep(5)
