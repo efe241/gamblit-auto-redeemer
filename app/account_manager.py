@@ -105,12 +105,30 @@ class AccountManager:
             except Exception as e:
                 log.error(f"Error loading accounts from {self.data_path}: {e}")
 
-        # Auto-import default account from .env if list is empty
+        # Also import accounts from GAMBLIT_ACCOUNTS env if provided
+        if self.config.raw_accounts:
+            try:
+                env_accounts = json.loads(self.config.raw_accounts)
+                if isinstance(env_accounts, list):
+                    for item in env_accounts:
+                        aid = item.get("id") or f"acc_{uuid.uuid4().hex[:6]}"
+                        if aid not in self.accounts:
+                            self.accounts[aid] = ManagedAccount(
+                                account_id=aid,
+                                name=item.get("name", "Hesap"),
+                                cookies=item.get("raw_cookies", ""),
+                                enabled=item.get("enabled", True),
+                                config=self.config,
+                            )
+            except Exception as e:
+                log.error(f"Error importing GAMBLIT_ACCOUNTS env: {e}")
+
+        # Auto-import default account from GAMBLIT_COOKIES if list is still empty
         if not self.accounts and self.config.raw_cookies and self.config.raw_cookies != "{}":
             default_id = "acc_default"
             acc = ManagedAccount(
                 account_id=default_id,
-                name="Ana Hesap (efe2424)",
+                name="Ana Hesap",
                 cookies=self.config.raw_cookies,
                 enabled=True,
                 config=self.config,

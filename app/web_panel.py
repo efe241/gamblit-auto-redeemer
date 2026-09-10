@@ -795,6 +795,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                                 <td><strong style="color: #3fb950;">${dlAccBal}</strong> DL <span style="font-size: 10px; color: #64748b;">(${Math.round(rawAccBal)} WL)</span></td>
                                 <td>Level ${a.level || 1}</td>
                                 <td style="display: flex; gap: 6px;">
+                                    <button class="btn-alt" type="button" style="padding: 4px 8px; font-size: 11px; color: #58a6ff;" onclick="testAccount('${a.id}')">🔄 Test Et</button>
                                     ${toggleBtn}
                                     <button class="btn-alt" type="button" style="padding: 4px 8px; font-size: 11px; color: #f85149;" onclick="removeAccount('${a.id}')">🗑️ Sil</button>
                                 </td>
@@ -988,15 +989,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({name, cookies})
                 });
+                const data = await res.json();
                 if (res.ok) {
-                    showToast('✅ Yeni hesap başarıyla eklendi ve bağlandı!');
+                    showToast(data.message || '✅ Yeni hesap başarıyla eklendi ve bağlandı!');
                     document.getElementById('new-acc-name').value = '';
                     document.getElementById('new-acc-cookies').value = '';
                     toggleAddAccountModal();
                     refreshData();
                 } else {
-                    const err = await res.json();
-                    showToast('Hata: ' + (err.error || 'Eklenemedi'), true);
+                    showToast('Hata: ' + (data.error || 'Eklenemedi'), true);
                 }
             } catch(e) {
                 showToast('İstek hatası: ' + e, true);
@@ -1021,6 +1022,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     refreshData();
                 }
             } catch(e) {}
+        }
+
+        async function testAccount(accId) {
+            showToast('🔄 Hesap bağlantısı test ediliyor...');
+            try {
+                const res = await fetch('/api/accounts/' + accId + '/test', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast(data.message || '✅ Bağlantı BAŞARILI!');
+                } else {
+                    showToast(data.message || '❌ Bağlantı kurulamadı!', true);
+                }
+                refreshData();
+            } catch(e) {
+                showToast('Hata: ' + e, true);
+            }
         }
 
         async function clearAllCodes() {
@@ -1107,6 +1124,7 @@ class WebPanel:
         self.app.router.add_post("/api/accounts", self.handle_add_account)
         self.app.router.add_delete("/api/accounts/{id}", self.handle_remove_account)
         self.app.router.add_post("/api/accounts/{id}/toggle", self.handle_toggle_account)
+        self.app.router.add_post("/api/accounts/{id}/test", self.handle_test_account)
         self.app.router.add_post("/api/codes/clear", self.handle_clear_codes)
 
     async def handle_import_auth(self, request: web.Request) -> web.Response:
@@ -1183,8 +1201,25 @@ class WebPanel:
         cookies = str(data.get("cookies", "")).strip()
         if not cookies:
             return web.json_response({"error": "Çerezler zorunludur"}, status=400)
+
         acc = await self.account_manager.add_account(name=name, cookies=cookies)
-        return web.json_response({"status": "added", "account": acc.to_dict()})
+        
+        # Test connection immediately
+        is_connected = await acc.client.connect_ws()
+        profile = acc.client._profile
+
+        if profile and profile.is_authenticated:
+            return web.json_response({
+                "status": "added",
+                "message": f"✅ Hesap başarıyla doğrulandı: {profile.username} (Level {profile.level})",
+                "account": acc.to_dict()
+            })
+        else:
+            return web.json_response({
+                "status": "added_pending",
+                "message": "⚠️ Hesap eklendi fakat henüz doğrulanmadı. Çerezlerin geçerli olduğunu veya GEO onayını kontrol edin.",
+                "account": acc.to_dict()
+            })
 
     async def handle_remove_account(self, request: web.Request) -> web.Response:
         if not self.account_manager:
@@ -1199,6 +1234,31 @@ class WebPanel:
         acc_id = request.match_info.get("id")
         ok = await self.account_manager.toggle_account(acc_id)
         return web.json_response({"status": "toggled" if ok else "not_found"})
+
+    async def handle_test_account(self, request: web.Request) -> web.Response:
+        if not self.account_manager:
+            return web.json_response({"error": "Account manager not available"}, status=500)
+        acc_id = request.match_info.get("id")
+        acc = self.account_manager.accounts.get(acc_id)
+        if not acc:
+            return web.json_response({"error": "Hesap bulunamadı"}, status=404)
+        
+        # Test connection
+        if acc.client._connected:
+            await acc.client.close()
+        await acc.client.connect_ws()
+        profile = acc.client._profile
+        if profile and profile.is_authenticated:
+            return web.json_response({
+                "status": "success",
+                "message": f"✅ Bağlantı BAŞARILI: {profile.username} (Level {profile.level}, {profile.balance_dl} DL)",
+                "account": acc.to_dict()
+            })
+        return web.json_response({
+            "status": "failed",
+            "message": "❌ Bağlantı kurulamadı. Çerezler geçersiz olabilir veya onay bekliyor.",
+            "account": acc.to_dict()
+        })
 
     async def handle_cors_preflight(self, request: web.Request) -> web.Response:
         return web.Response(status=200)

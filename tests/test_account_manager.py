@@ -14,7 +14,7 @@ async def test_account_manager_crud(tmp_path):
     # 1. Check auto-import of default account
     assert len(mgr.accounts) == 1
     default_acc = mgr.accounts["acc_default"]
-    assert default_acc.name == "Ana Hesap (efe2424)"
+    assert "Ana Hesap" in default_acc.name
 
     # 2. Add new account
     acc2 = await mgr.add_account("Hesap 2", '{"sid": "test_sid_2"}')

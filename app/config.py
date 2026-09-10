@@ -25,6 +25,7 @@ class Config:
         default_factory=lambda: os.getenv("GAMBLIT_BASE_URL", "https://gamblit.net").rstrip("/")
     )
     raw_cookies: str = field(default_factory=lambda: os.getenv("GAMBLIT_COOKIES", "{}"))
+    raw_accounts: str = field(default_factory=lambda: os.getenv("GAMBLIT_ACCOUNTS", ""))
     gamblit_user_agent: str = field(
         default_factory=lambda: os.getenv(
             "GAMBLIT_USER_AGENT",
