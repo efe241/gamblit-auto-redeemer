@@ -1438,29 +1438,39 @@ LOG_FILE={self.config.log_file}
         return web.json_response({"status": "failed", "error": err_msg}, status=400)
 
     async def handle_manual_redeem(self, request: web.Request) -> web.Response:
-        data = await request.json()
-        code = str(data.get("code", "")).strip().upper()
-        captcha_override = str(data.get("captcha", "")).strip()
+        try:
+            data = await request.json()
+            code = str(data.get("code", "")).strip().upper()
+            captcha_override = str(data.get("captcha", "")).strip()
 
-        token = captcha_override or await self.captcha_pool.get_token()
+            token = captcha_override or await self.captcha_pool.get_token()
 
-        latency = RedeemLatency(t0_discord_received=time.time())
-        result = await self.client.redeem_code(code, latency=latency, captcha_token=token)
+            latency = RedeemLatency(t0_discord_received=time.time())
+            result = await self.client.redeem_code(code, latency=latency, captcha_token=token)
 
-        # Invalidate used token so it's not reused
-        if not captcha_override and token:
-            self.captcha_pool.invalidate()
+            # Invalidate used token so it's not reused
+            if not captcha_override and token:
+                self.captcha_pool.invalidate()
 
-        await self.db.update_redeem_result(result)
-        self.metrics.record_redeem(result)
+            await self.db.update_redeem_result(result)
+            self.metrics.record_redeem(result)
 
-        return web.json_response({
-            "code": result.code,
-            "status": result.status.value,
-            "message": result.message,
-            "latency_ms": result.latency.http_request_ms,
-            "response_data": result.response_data,
-        })
+            lat_ms = result.latency.http_request_ms if result.latency else 0.0
+            return web.json_response({
+                "code": result.code,
+                "status": result.status.value,
+                "message": result.message,
+                "latency_ms": lat_ms,
+                "response_data": result.response_data,
+            })
+        except Exception as e:
+            return web.json_response({
+                "code": locals().get("code", "ERROR"),
+                "status": "ERROR",
+                "message": f"Redeem işlemi sırasında hata oluştu: {e}",
+                "latency_ms": 0.0,
+                "response_data": {"error": str(e)}
+            }, status=200)
 
     async def handle_inject_captcha(self, request: web.Request) -> web.Response:
         data = await request.json()
