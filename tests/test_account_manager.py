@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 import os
 import json
 from pathlib import Path
@@ -37,3 +37,19 @@ async def test_account_manager_crud(tmp_path):
     assert len(mgr.accounts) == 1
 
     await mgr.close_all()
+
+
+def test_gamblit_level_calculation():
+    from app.gamblit_client import calculate_gamblit_level, xp_required_for_level
+
+    # Check boundaries
+    assert calculate_gamblit_level(0) == 1
+    assert calculate_gamblit_level(-100) == 1
+    assert calculate_gamblit_level(None) == 1
+
+    # Level 5 threshold is 2187.5
+    assert calculate_gamblit_level(2187.0) == 4
+    assert calculate_gamblit_level(2187.5) == 5
+
+    # Known live user XP (ragenoisy: ~77,255,941.59 XP -> Level 135)
+    assert calculate_gamblit_level(77255941.59) == 135

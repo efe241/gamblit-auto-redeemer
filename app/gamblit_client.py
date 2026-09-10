@@ -17,6 +17,47 @@ from app.models import RedeemResult, RedeemStatus, RedeemLatency, AccountProfile
 log = logging.getLogger("gamblit_redeemer.client")
 
 
+def xp_required_for_level(lvl: int) -> float:
+    """Exact XP requirement calculation matching Gamblit frontend (Lm function)."""
+    if lvl < 5:
+        a = lvl * 50 * 0.35
+    elif lvl < 10:
+        a = lvl * 50 * 0.8
+    elif lvl < 50:
+        t = (lvl - 10) // 10
+        n = 1.55 ** t
+        a = lvl * 50 * n
+    elif lvl < 100:
+        t = 1.55 ** 4
+        n = (lvl - 50) // 10
+        r = t * (1.15 ** n)
+        a = lvl * 50 * r
+    else:
+        t = (1.55 ** 4) * (1.15 ** 5)
+        n = (lvl - 100) // 10
+        r = t * (1.5 ** n)
+        a = lvl * 50 * r
+    return a * 12.5
+
+
+def calculate_gamblit_level(xp: Any) -> int:
+    """Exact Gamblit level calculation from XP matching Gamblit frontend (Mi function)."""
+    try:
+        cur_xp = float(xp or 0)
+        if cur_xp <= 0:
+            return 1
+        lvl = 1
+        req = xp_required_for_level(lvl)
+        while cur_xp >= req:
+            cur_xp -= req
+            lvl += 1
+            req = xp_required_for_level(lvl)
+        return lvl
+    except Exception:
+        return 1
+
+
+
 class GamblitClient:
     def __init__(self, config: Config):
         self.config = config
@@ -164,14 +205,10 @@ class GamblitClient:
 
                 elif packet_id == "UserData":
                     if packet.get("username") or packet.get("success"):
-                        # Extract level directly, or calculate from Gamblit XP formula (math.floor(math.sqrt(xp / 4239)))
+                        # Extract level directly, or calculate accurately from Gamblit XP
                         raw_lvl = packet.get("level")
-                        if not raw_lvl and packet.get("xp"):
-                            try:
-                                import math
-                                raw_lvl = max(1, math.floor(math.sqrt(float(packet.get("xp", 0)) / 4239.0)))
-                            except Exception:
-                                raw_lvl = 1
+                        if not raw_lvl and packet.get("xp") is not None:
+                            raw_lvl = calculate_gamblit_level(packet.get("xp"))
 
                         self._profile = AccountProfile(
                             username=packet.get("username", "GamblitUser"),
@@ -218,10 +255,13 @@ class GamblitClient:
                     if resp.status == 200:
                         data = await resp.json()
                         user = data.get("user") or data
+                        lvl = user.get("level")
+                        if not lvl and user.get("xp") is not None:
+                            lvl = calculate_gamblit_level(user.get("xp"))
                         self._profile = AccountProfile(
                             username=user.get("username", "GamblitUser"),
                             user_id=str(user.get("id", "")),
-                            level=user.get("level"),
+                            level=int(lvl or 1),
                             balance_dl=user.get("balance"),
                             is_authenticated=True,
                             last_checked_at=time.time(),
