@@ -1,8 +1,10 @@
-﻿import asyncio
+import asyncio
 import aiohttp
 import time
 
-API_KEY = "nc_live_oDTe_-mcq1g6-bf85-5bcUO_wQwcs_5V"
+import os
+
+API_KEY = os.getenv("NONECAP_API_KEY", "")
 SITEKEY = "60fa63fa-7302-4baa-9d64-8b60bc80a6dc"
 PAGE_URL = "https://gamblit.net"
 

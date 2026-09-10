@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 import time
 import sys
@@ -13,8 +13,9 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-TOKEN = "MTUzMTYyMDExNDA5MTQ3NTA1OQ.Gre9Kk.ZGK-H2hxn2gA6bmfg6KDJrHAPbz-Go_E8cooBM"
-CHANNEL_ID = "1369748391680016484"
+import os
+TOKEN = os.getenv("DISCORD_TOKEN", "")
+CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID", "1369748391680016484")
 
 async def main():
     print(f"[*] Discord Token ve Kanal kontrol ediliyor...")
