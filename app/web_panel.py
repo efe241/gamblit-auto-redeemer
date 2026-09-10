@@ -326,6 +326,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <a href="/durum" style="color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);">📊 Canlı Durum (/durum)</a>
             <span id="dc-badge" class="badge badge-purple">Discord: Bekleniyor</span>
             <span id="solver-badge" class="badge badge-purple">Çözücü: Manuel Mod</span>
             <span id="ws-badge" class="badge badge-offline">WebSocket: Bağlanıyor...</span>
@@ -1101,6 +1102,354 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
+DURUM_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canlı Durum & Aktif Hesaplar • Gamblit Auto-Redeemer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --surface: #0c1017;
+            --card-bg: rgba(16, 22, 34, 0.85);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent: #38bdf8;
+            --accent-green: #10b981;
+            --accent-red: #f43f5e;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .title-area h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .live-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.5px;
+        }
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 1.8s infinite;
+        }
+        .header-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            transition: all 0.2s;
+        }
+        .header-links a:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 18px 20px;
+            backdrop-filter: blur(12px);
+        }
+        .stat-card .label {
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stat-card .val {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .stat-card .sub {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+        }
+        .accounts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .acc-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            transition: transform 0.2s, border-color 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .acc-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(56, 189, 248, 0.35);
+        }
+        .acc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        .acc-info h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+        .acc-info .acc-username {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .level-badge {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.1));
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            color: #7dd3fc;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .acc-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 12px 14px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .acc-prop .p-lbl { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; }
+        .acc-prop .p-val { font-size: 15px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: white; }
+        .acc-eligibility {
+            font-size: 11.5px;
+            color: #94a3b8;
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        .status-connected {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-disconnected {
+            background: rgba(244, 63, 94, 0.15);
+            color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.9); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title-area">
+                <h1>⚡ Gamblit Auto-Redeemer</h1>
+                <span class="live-badge"><span class="live-dot"></span> SİSTEM CANLI</span>
+            </div>
+            <div class="header-links">
+                <a href="/">⚙️ Kontrol Paneli</a>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">👥 Aktif Hesaplar</div>
+                <div class="val" id="stat-acc-count">--</div>
+                <div class="sub" id="stat-acc-sub">Yükleniyor...</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">💰 Toplam Bakiye</div>
+                <div class="val" id="stat-total-dl" style="color: #38bdf8;">-- DL</div>
+                <div class="sub">Tüm aktif hesapların toplamı</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">⏱️ WebSocket Ping</div>
+                <div class="val" id="stat-ping">-- ms</div>
+                <div class="sub" id="stat-ws-sub">Gamblit WS bağlantısı</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">🛡️ Captcha Havuzu</div>
+                <div class="val" id="stat-tokens" style="color: #34d399;">--</div>
+                <div class="sub" id="stat-captcha-sub">NoneCap Kredisi</div>
+            </div>
+        </div>
+
+        <div class="section-title">
+            👤 Bağlı & Aktif Hesaplar
+        </div>
+        <div class="accounts-grid" id="accounts-container">
+            <!-- Account Cards dynamically loaded here -->
+            <div style="color: var(--text-muted); font-size: 13px; padding: 20px;">Hesaplar yükleniyor...</div>
+        </div>
+    </div>
+
+    <script>
+        function getEligibleText(level) {
+            const lvl = parseInt(level) || 1;
+            const dropTiers = [175, 150, 125, 100, 80, 60, 40, 25, 5];
+            const eligible = dropTiers.filter(t => lvl >= t);
+            if (eligible.length === 0) return "⚠️ Seviye 5'in altında (seviye dropu alamaz)";
+            return `🎯 Seviye ${eligible[0]}+ ödülünden başlayarak ${eligible.length} adet drop kodunu toplar.`;
+        }
+
+        async function updateDurum() {
+            try {
+                const res = await fetch('/api/durum');
+                const data = await res.json();
+
+                // Stats Overview
+                const totalAcc = data.total_accounts || 0;
+                const connAcc = data.connected_accounts || 0;
+                document.getElementById('stat-acc-count').innerText = `${connAcc} / ${totalAcc}`;
+                document.getElementById('stat-acc-sub').innerText = `${connAcc} Hesap Bağlı & Hazır`;
+
+                document.getElementById('stat-total-dl').innerText = (data.total_dl || 0).toFixed(2) + ' DL';
+                document.getElementById('stat-ping').innerText = (data.avg_latency_ms || 0).toFixed(1) + ' ms';
+                document.getElementById('stat-ws-sub').innerText = data.accounts.some(a => a.is_connected) ? '✅ WebSocket Aktif' : '❌ Bağlantı Yok';
+
+                const poolTokens = (data.captcha && data.captcha.valid_tokens) ? data.captcha.valid_tokens : 0;
+                const remCredits = (data.captcha && data.captcha.nonecap_remaining) ? data.captcha.nonecap_remaining : 1300;
+                document.getElementById('stat-tokens').innerText = `${poolTokens} Hazır Token`;
+                document.getElementById('stat-captcha-sub').innerText = `${remCredits} NoneCap Kredisi Kaldı`;
+
+                // Render Account Cards
+                const container = document.getElementById('accounts-container');
+                if (!data.accounts || data.accounts.length === 0) {
+                    container.innerHTML = '<div style="color: #94a3b8; font-size: 13px; padding: 20px;">Kayıtlı hesap bulunamadı. Panelden hesap ekleyebilirsiniz.</div>';
+                    return;
+                }
+
+                let html = '';
+                for (const acc of data.accounts) {
+                    const isConn = acc.is_authenticated || acc.is_connected;
+                    const statusClass = isConn ? 'status-connected' : 'status-disconnected';
+                    const statusText = isConn ? '● Bağlı' : '● Bağlantı Yok';
+                    const eligText = getEligibleText(acc.level);
+                    const balDl = ((parseFloat(acc.balance_dl || 0)) / 100.0).toFixed(2);
+
+                    html += `
+                        <div class="acc-card">
+                            <div class="acc-header">
+                                <div class="acc-info">
+                                    <h3>${acc.name || 'Hesap'}</h3>
+                                    <div class="acc-username">👤 ${acc.username || '--'}</div>
+                                </div>
+                                <div class="level-badge">LVL ${acc.level || 1}</div>
+                            </div>
+                            <div class="acc-details">
+                                <div class="acc-prop">
+                                    <div class="p-lbl">Bakiye</div>
+                                    <div class="p-val" style="color: #38bdf8;">${balDl} DL</div>
+                                </div>
+                                <div class="acc-prop">
+                                    <div class="p-lbl">Durum</div>
+                                    <div class="p-val"><span class="status-badge ${statusClass}">${statusText}</span></div>
+                                </div>
+                            </div>
+                            <div class="acc-eligibility">
+                                ${eligText}
+                            </div>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                console.error("Durum güncelleme hatası:", e);
+            }
+        }
+
+        updateDurum();
+        setInterval(updateDurum, 3000);
+    </script>
+</body>
+</html>
+"""
+
 
 class WebPanel:
     def __init__(
@@ -1145,6 +1494,8 @@ class WebPanel:
 
     def _setup_routes(self):
         self.app.router.add_get("/", self.handle_index)
+        self.app.router.add_get("/durum", self.handle_durum)
+        self.app.router.add_get("/api/durum", self.handle_durum_api)
         self.app.router.add_get("/api/status", self.handle_status)
         self.app.router.add_get("/api/config", self.handle_get_config)
         self.app.router.add_post("/api/config", self.handle_save_config)
@@ -1300,6 +1651,43 @@ class WebPanel:
 
     async def handle_index(self, request: web.Request) -> web.Response:
         return web.Response(text=HTML_TEMPLATE, content_type="text/html")
+
+    async def handle_durum(self, request: web.Request) -> web.Response:
+        return web.Response(text=DURUM_HTML_TEMPLATE, content_type="text/html")
+
+    async def handle_durum_api(self, request: web.Request) -> web.Response:
+        summary = self.account_manager.get_summary() if self.account_manager else {
+            "total_accounts": 0,
+            "connected_accounts": 0,
+            "total_dl": 0,
+            "accounts": [],
+        }
+        balances = await self.captcha_pool.get_balances() if self.captcha_pool else {}
+        nonecap_rem = balances.get("nonecap")
+        nonecap_credits = 1300
+        if nonecap_rem is not None:
+            try:
+                nonecap_credits = int(str(nonecap_rem).split()[0])
+            except Exception:
+                nonecap_credits = nonecap_rem
+
+        raw_total = summary.get("total_dl", 0) or 0
+        total_dl_val = round(float(raw_total) / 100.0, 2)
+        avg_lat = self.metrics.summary().get("avg_latency_ms", 0.0) if self.metrics else 0.0
+
+        return web.json_response({
+            "total_accounts": summary.get("total_accounts", 0),
+            "connected_accounts": summary.get("connected_accounts", 0),
+            "total_dl": total_dl_val,
+            "avg_latency_ms": avg_lat,
+            "captcha": {
+                "valid_tokens": self.captcha_pool.valid_token_count if self.captcha_pool else 0,
+                "target_pool_size": self.captcha_pool.target_pool_size if self.captcha_pool else 1,
+                "nonecap_remaining": nonecap_credits,
+                "is_solving": self.captcha_pool.is_solving if self.captcha_pool else False,
+            },
+            "accounts": summary.get("accounts", []),
+        })
 
     async def handle_status(self, request: web.Request) -> web.Response:
         profile = await self.client.get_profile()

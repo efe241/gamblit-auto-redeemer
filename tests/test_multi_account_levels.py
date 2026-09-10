@@ -289,3 +289,60 @@ async def test_phase4_end_to_end_worker_drop_execution(tmp_path):
 
     await mgr.close_all()
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_durum_page_and_api(tmp_path):
+    from app.web_panel import WebPanel
+    from app.config import Config
+    from app.database import Database
+    from app.metrics import MetricsTracker
+    from app.queue import RedeemQueue
+    from app.captcha_pool import CaptchaPool
+    from app.account_manager import AccountManager, ManagedAccount
+    from app.models import AccountProfile
+    from unittest.mock import MagicMock
+    import json
+
+    cfg = Config()
+    db = Database(str(tmp_path / "test_durum.db"))
+    await db.connect()
+    metrics = MetricsTracker()
+    queue = RedeemQueue(db=db)
+    captcha_pool = CaptchaPool(config=cfg)
+    mgr = AccountManager(config=cfg, data_path=str(tmp_path / "accounts.json"))
+    mgr.accounts.clear()
+
+    acc1 = ManagedAccount("acc_main", "Main", "c1", True, cfg)
+    acc1.client._profile = AccountProfile(username="Tipisteme", level=42, balance_dl=508.42, is_authenticated=True)
+    mgr.accounts[acc1.id] = acc1
+
+    panel = WebPanel(
+        config=cfg,
+        client=acc1.client,
+        db=db,
+        metrics=metrics,
+        queue=queue,
+        captcha_pool=captcha_pool,
+        account_manager=mgr,
+    )
+
+    req = MagicMock()
+    resp_durum = await panel.handle_durum(req)
+    assert resp_durum.status == 200
+    assert "Gamblit Auto-Redeemer" in resp_durum.text
+    assert "/api/durum" in resp_durum.text
+
+    resp_api = await panel.handle_durum_api(req)
+    assert resp_api.status == 200
+    data = json.loads(resp_api.text)
+    assert data["total_accounts"] == 1
+    assert data["connected_accounts"] == 1
+    assert data["total_dl"] == 5.08
+    assert len(data["accounts"]) == 1
+    assert data["accounts"][0]["username"] == "Tipisteme"
+    assert data["accounts"][0]["level"] == 42
+
+    await db.close()
+    await mgr.close_all()
+
