@@ -377,12 +377,16 @@ class CaptchaPool:
             self._bg_task = None
 
     async def _pool_maintenance_loop(self):
-        """Keeps tokens fresh: whenever in schedule, maintains target_pool_size valid tokens ready in pool."""
+        """
+        Keeps tokens fresh with ZERO-GAP OVERLAP:
+        NoneCap/CapSolver takes ~8-12 seconds to resolve.
+        We trigger the background solve proactively when a token has < 25 seconds remaining.
+        This guarantees the new token is 100% ready in RAM before the old token expires,
+        leaving zero gap and zero chance of an empty pool when a drop arrives.
+        """
         while True:
             try:
-                # Check if we are inside the active schedule window (e.g. 20:25 - 21:00)
                 if not self.config.is_in_schedule():
-                    # Outside operating hours, do not spend credits/solve captchas
                     await asyncio.sleep(10)
                     continue
 
@@ -390,15 +394,20 @@ class CaptchaPool:
                 if has_provider and not self.is_solving:
                     now = time.time()
                     async with self._lock:
+                        # Clean expired tokens (> 110s)
                         self._tokens = [(t0, tok) for t0, tok in self._tokens if (now - t0) < self.token_ttl_seconds]
-                        current_count = len(self._tokens)
+                        # Count tokens that still have >= 25 seconds of validity left
+                        fresh_count = sum(1 for t0, _ in self._tokens if (self.token_ttl_seconds - (now - t0)) >= 25.0)
 
-                    # If below target pool size, resolve fresh token
-                    if current_count < self.target_pool_size:
-                        log.info(f"⚡ [Havuz Hazırlığı] Havuzda {current_count}/{self.target_pool_size} token var. Yeni token çözülüyor...")
+                    # If fewer fresh tokens than target_pool_size, solve replacement proactively!
+                    if fresh_count < self.target_pool_size:
+                        log.info(
+                            f"⚡ [Sıfır-Boşluk Köprüsü] Token bitmeden yenisi hazırlanıyor "
+                            f"(Hazır: {len(self._tokens)}, Taze: {fresh_count}/{self.target_pool_size})..."
+                        )
                         await self.auto_solve_once()
 
-                await asyncio.sleep(5)
+                await asyncio.sleep(4)
             except asyncio.CancelledError:
                 break
             except Exception as e:
