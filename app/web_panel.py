@@ -570,11 +570,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <input type="text" id="cfg-sched-end" placeholder="21:00">
                 </div>
             </div>
-
-            <div class="form-group">
-                <label>GAMBLIT ÇEREZLERİ (Cookie Header)</label>
-                <textarea id="cfg-cookies" rows="3" placeholder="_iidt=...; cf_clearance=...; sid=..."></textarea>
-            </div>
             <button type="submit">💾 Ayarları Kaydet & Yenile</button>
         </form>
     </div>
@@ -786,7 +781,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('cfg-guild').value = data.discord_guild_id || '';
                 document.getElementById('cfg-nonecap').value = data.nonecap_api_key || '';
                 document.getElementById('cfg-capsolver').value = data.capsolver_api_key || '';
-                document.getElementById('cfg-cookies').value = data.raw_cookies || '';
                 document.getElementById('cfg-sched-start').value = data.schedule_start || '20:25';
                 document.getElementById('cfg-sched-end').value = data.schedule_end || '21:00';
             } catch(e) {
@@ -802,7 +796,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 discord_guild_id: document.getElementById('cfg-guild').value,
                 nonecap_api_key: document.getElementById('cfg-nonecap').value,
                 capsolver_api_key: document.getElementById('cfg-capsolver').value,
-                raw_cookies: document.getElementById('cfg-cookies').value,
                 schedule_enabled: true,
                 schedule_start: document.getElementById('cfg-sched-start').value.trim() || '20:25',
                 schedule_end: document.getElementById('cfg-sched-end').value.trim() || '21:00'
@@ -1716,7 +1709,11 @@ class WebPanel:
         guild_id = data.get("discord_guild_id", "0").strip()
         nonecap_key = data.get("nonecap_api_key", "").strip()
         capsolver_key = data.get("capsolver_api_key", "").strip()
-        raw_cookies = data.get("raw_cookies", "").strip()
+        raw_cookies = data.get("raw_cookies")
+        if raw_cookies is not None:
+            self.config.raw_cookies = raw_cookies.strip()
+        else:
+            raw_cookies = self.config.raw_cookies
         sched_enabled = bool(data.get("schedule_enabled", True))
         sched_start = data.get("schedule_start", "20:25").strip()
         sched_end = data.get("schedule_end", "21:00").strip()
@@ -1728,7 +1725,6 @@ class WebPanel:
         self.config.discord_guild_id = int(guild_id or 0)
         self.config.nonecap_api_key = nonecap_key
         self.config.capsolver_api_key = capsolver_key
-        self.config.raw_cookies = raw_cookies
         self.config.schedule_enabled = sched_enabled
         self.config.schedule_start = sched_start
         self.config.schedule_end = sched_end
