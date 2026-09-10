@@ -33,6 +33,25 @@ class RedeemQueue:
         """
         code_upper = item.code.upper()
 
+        # If it's a multi-level drop, check if all codes were already seen
+        if item.level_codes:
+            codes_in_drop = [c[1].upper() for c in item.level_codes]
+            async with self._lock:
+                if all(c in self._seen_codes for c in codes_in_drop):
+                    log.info(f"[Duplicate Ignored] All codes in drop already processed (RAM cache).")
+                    return False
+                for c in codes_in_drop:
+                    self._seen_codes.add(c)
+
+            await self.db.register_new_code(item)
+            try:
+                self._queue.put_nowait(item)
+                log.info(f"[Enqueued] Multi-level drop with {len(codes_in_drop)} codes added to redeem queue.")
+                return True
+            except asyncio.QueueFull:
+                log.error("Redeem queue is full! Dropping multi-level drop.")
+                return False
+
         # Layer 1: Instant RAM check
         async with self._lock:
             if code_upper in self._seen_codes:

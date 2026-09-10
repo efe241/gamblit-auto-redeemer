@@ -67,6 +67,20 @@ class CaptchaPool:
                 return self.current_token
             return ""
 
+    async def consume_token(self) -> Optional[str]:
+        """
+        Atomically pops and consumes a valid token from the pool for single-use verification.
+        Guarantees that two concurrent accounts will never submit the same token and trigger duplicate rejection.
+        """
+        async with self._lock:
+            if self.is_token_valid and self.current_token:
+                tok = self.current_token
+                self.current_token = None
+                self.token_created_at = 0.0
+                log.info("🎯 Havuzdaki hCaptcha tokenı kullanıldı ve tüketildi.")
+                return tok
+            return None
+
     async def get_balances(self) -> Dict[str, Any]:
         """Queries current balance for configured solvers."""
         balances = {"nonecap": None, "capsolver": None, "twocaptcha": None, "nonecap_solves": 0, "nonecap_remaining": 1300}

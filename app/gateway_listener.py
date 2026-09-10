@@ -31,12 +31,14 @@ class DiscordGatewayListener:
         metrics: MetricsTracker,
         db: Database,
         client: GamblitClient,
+        account_manager: Optional[Any] = None,
     ):
         self.config = config
         self.queue = queue
         self.metrics = metrics
         self.db = db
         self.gamblit_client = client
+        self.account_manager = account_manager
         self._running = False
         self._ws: Optional[Any] = None
         self._task: Optional[asyncio.Task] = None
@@ -213,40 +215,51 @@ class DiscordGatewayListener:
 
         self.metrics.record_received()
 
-        # Parse Codes (highest eligible level down to lowest)
-        user_level = None
-        if self.gamblit_client and self.gamblit_client._profile:
-            user_level = self.gamblit_client._profile.level
+        # Parse Drop or Code
+        max_level = None
+        if self.account_manager:
+            max_level = self.account_manager.get_max_level()
+        elif self.gamblit_client and getattr(self.gamblit_client, "_profile", None):
+            raw_lvl = getattr(self.gamblit_client._profile, "level", None)
+            if isinstance(raw_lvl, int):
+                max_level = raw_lvl
 
-        parsed_list = CodeParser.parse_all_eligible_codes(
+        drop_item = CodeParser.parse_drop_message(
             content=content,
             message_id=message_id,
             channel_id=channel_id,
             guild_id=guild_id,
             author_id=author_id,
             received_at=t0,
-            user_level=user_level,
+            max_level=max_level,
         )
 
-        if not parsed_list:
+        if not drop_item:
             return
 
-        for parsed in parsed_list:
-            self.metrics.record_parsed()
+        self.metrics.record_parsed()
+        if drop_item.level_codes:
             log.info(
-                f"⚡ [KOD YAKALANDI] '{parsed.code}' | Kanal: #{channel_id} | Gönderen: {author_name} "
-                f"| Ayrıştırma Gecikmesi: {parsed.parse_latency_ms:.2f} ms"
+                f"⚡ [MULTI-LEVEL DROP YAKALANDI] {len(drop_item.level_codes)} kod tespit edildi! "
+                f"En yüksek kod: '{drop_item.code}' (Level {drop_item.required_level}+) | Gönderen: {author_name} "
+                f"| Gecikme: {drop_item.parse_latency_ms:.2f} ms"
+            )
+        else:
+            log.info(
+                f"⚡ [KOD YAKALANDI] '{drop_item.code}' | Kanal: #{channel_id} | Gönderen: {author_name} "
+                f"| Ayrıştırma Gecikmesi: {drop_item.parse_latency_ms:.2f} ms"
             )
 
-            # Enqueue for redemption
-            enqueued = await self.queue.enqueue(parsed)
-            if enqueued:
-                await self.db.log_event(
-                    "CODE_ENQUEUED",
-                    {
-                        "code": parsed.code,
-                        "message_id": message_id,
-                        "author": author_name,
-                        "channel_id": channel_id,
-                    },
-                )
+        # Enqueue for parallel multi-account redemption
+        enqueued = await self.queue.enqueue(drop_item)
+        if enqueued:
+            await self.db.log_event(
+                "CODE_ENQUEUED",
+                {
+                    "code": drop_item.code,
+                    "message_id": message_id,
+                    "author": author_name,
+                    "channel_id": channel_id,
+                    "is_drop": bool(drop_item.level_codes),
+                },
+            )

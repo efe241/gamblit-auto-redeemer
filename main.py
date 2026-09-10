@@ -148,6 +148,7 @@ async def run_app():
         metrics=metrics,
         db=db,
         client=client,
+        account_manager=account_manager,
     )
 
     # 9. Initialize Web Panel Dashboard

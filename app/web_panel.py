@@ -1440,20 +1440,59 @@ LOG_FILE={self.config.log_file}
     async def handle_manual_redeem(self, request: web.Request) -> web.Response:
         try:
             data = await request.json()
-            code = str(data.get("code", "")).strip().upper()
+            raw_input = str(data.get("code", "")).strip()
             captcha_override = str(data.get("captcha", "")).strip()
 
             token = captcha_override or await self.captcha_pool.get_token()
 
-            latency = RedeemLatency(t0_discord_received=time.time())
-            result = await self.client.redeem_code(code, latency=latency, captcha_token=token)
+            # Check if user pasted a multi-level drop message!
+            level_codes = CodeParser.extract_level_codes(raw_input)
+            if level_codes and self.account_manager and len(self.account_manager.accounts) > 0:
+                results = await self.account_manager.redeem_drop(level_codes, captcha_pool=self.captcha_pool)
+                summary_msgs = []
+                best_status = "SUCCESS"
+                for r_item in results:
+                    acc_n = r_item.get("account_name", "Hesap")
+                    c = r_item.get("code")
+                    lvl = r_item.get("req_level")
+                    res = r_item.get("result")
+                    if res:
+                        summary_msgs.append(f"[{acc_n}] Lvl {lvl}+ ({c}): {res.status.value} - {res.message}")
+                        await self.db.update_redeem_result(res)
+                        self.metrics.record_redeem(res)
 
-            # Invalidate used token so it's not reused
+                return web.json_response({
+                    "code": f"MULTI-LEVEL DROP ({len(level_codes)} kod)",
+                    "status": best_status,
+                    "message": " | ".join(summary_msgs) if summary_msgs else "Hesaplar dropu işledi.",
+                    "latency_ms": 0.0,
+                    "response_data": {"drop_results": len(results)},
+                })
+
+            code = raw_input.upper()
+            latency = RedeemLatency(t0_discord_received=time.time())
+
+            if self.account_manager and len(self.account_manager.accounts) > 0:
+                multi_results = await self.account_manager.redeem_all(code, captcha_token=token)
+                result = None
+                for res_entry in multi_results:
+                    r = res_entry.get("result")
+                    if r:
+                        await self.db.update_redeem_result(r)
+                        self.metrics.record_redeem(r)
+                        if r.status == RedeemStatus.SUCCESS:
+                            result = r
+                if not result and multi_results:
+                    result = multi_results[0].get("result")
+                if not result:
+                    result = await self.client.redeem_code(code, latency=latency, captcha_token=token)
+            else:
+                result = await self.client.redeem_code(code, latency=latency, captcha_token=token)
+                await self.db.update_redeem_result(result)
+                self.metrics.record_redeem(result)
+
             if not captcha_override and token:
                 self.captcha_pool.invalidate()
-
-            await self.db.update_redeem_result(result)
-            self.metrics.record_redeem(result)
 
             lat_ms = result.latency.http_request_ms if result.latency else 0.0
             return web.json_response({

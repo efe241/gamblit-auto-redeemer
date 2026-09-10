@@ -46,26 +46,50 @@ class CodeParser:
     def extract_level_codes(cls, content: str) -> List[Tuple[int, str]]:
         """
         Extracts list of (required_level, code) from multi-level announcement messages.
-        Works across multiline markdown with bolding, emojis, and spaces.
+        Works across single-line and multiline formats with markdown bolding, backticks, emojis.
         Sorts descending by level (highest reward first).
         """
         results = []
-        # Pattern matching: LEVEL 150+ ... (code / use the code) CODE
-        pattern = re.compile(
-            r"\bLEVEL\s*(\d+)\+?.*?(?:use\s+the\s+code|code)\s+\**([A-Za-z0-9_-]{3,32})\**",
+        seen_codes = set()
+        if not content:
+            return results
+
+        # Strip markdown backticks for clean matching
+        cleaned = content.replace("`", "")
+
+        # 1. Same-line match: LEVEL 150+ ... (use the code / code / kod) CODE
+        pattern_same_line = re.compile(
+            r"\bLEVEL\s*(\d+)\+?[^\n]*?(?:use\s+the\s+code|code|kod)\s*[:=]?\s*\**([A-Za-z0-9_-]{3,32})\**",
             re.IGNORECASE,
         )
-        matches = pattern.findall(content)
-        for lvl_str, code_str in matches:
+        for lvl_str, code_str in pattern_same_line.findall(cleaned):
             try:
                 lvl = int(lvl_str)
                 code_clean = code_str.strip().upper()
-                if cls.validate_code_format(code_clean):
+                if cls.validate_code_format(code_clean) and code_clean not in seen_codes:
+                    seen_codes.add(code_clean)
                     results.append((lvl, code_clean))
             except Exception:
                 continue
 
-        # Sort by level descending (e.g. Level 175 first, then 150, 125...)
+        # 2. Two-lines match: Line 1 has LEVEL N+, Line 2 has Use the code CODE
+        lines = [l.strip() for l in cleaned.splitlines() if l.strip()]
+        for i in range(len(lines) - 1):
+            lvl_match = re.search(r"\bLEVEL\s*(\d+)\+?", lines[i], re.IGNORECASE)
+            # If line i has LEVEL N+ but not a code on the same line
+            if lvl_match and not re.search(r"(?:use\s+the\s+code|code|kod)\s*[:=]?\s*\**([A-Za-z0-9_-]{3,32})\**", lines[i], re.IGNORECASE):
+                code_match = re.search(r"(?:use\s+the\s+code|code|kod)\s*[:=]?\s*\**([A-Za-z0-9_-]{3,32})\**", lines[i+1], re.IGNORECASE)
+                if code_match:
+                    try:
+                        lvl = int(lvl_match.group(1))
+                        code_clean = code_match.group(1).strip().upper()
+                        if cls.validate_code_format(code_clean) and code_clean not in seen_codes:
+                            seen_codes.add(code_clean)
+                            results.append((lvl, code_clean))
+                    except Exception:
+                        continue
+
+        # Sort by level descending (highest reward first, e.g. Level 175 first, then 150, 125...)
         results.sort(key=lambda x: x[0], reverse=True)
         return results
 
@@ -214,3 +238,61 @@ class CodeParser:
                 )
             )
         return results
+
+    @classmethod
+    def parse_drop_message(
+        cls,
+        content: str,
+        message_id: int,
+        channel_id: int,
+        guild_id: int,
+        author_id: int,
+        received_at: Optional[float] = None,
+        max_level: Optional[int] = None,
+    ) -> Optional[ParsedCode]:
+        """
+        Parses a Discord message. If it contains a multi-level drop, returns a single ParsedCode
+        containing all (req_level, code) pairs sorted descending.
+        If it's a single code, returns ParsedCode for that code.
+        Returns None if no promo code found.
+        """
+        t0 = received_at or time.time()
+        level_codes = cls.extract_level_codes(content)
+        t1 = time.time()
+
+        if level_codes:
+            if isinstance(max_level, int) and max_level > 0:
+                level_codes = [item for item in level_codes if item[0] <= max_level]
+            if not level_codes:
+                return None
+
+            primary_code = level_codes[0][1]
+            return ParsedCode(
+                code=primary_code,
+                message_id=message_id,
+                channel_id=channel_id,
+                guild_id=guild_id,
+                author_id=author_id,
+                received_at=t0,
+                parsed_at=t1,
+                raw_content=content,
+                required_level=level_codes[0][0],
+                level_codes=level_codes,
+            )
+
+        single = cls.extract_raw_code(content)
+        if single:
+            return ParsedCode(
+                code=single,
+                message_id=message_id,
+                channel_id=channel_id,
+                guild_id=guild_id,
+                author_id=author_id,
+                received_at=t0,
+                parsed_at=t1,
+                raw_content=content,
+                required_level=None,
+                level_codes=None,
+            )
+
+        return None

@@ -10,10 +10,10 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from app.config import Config
 from app.gamblit_client import GamblitClient
-from app.models import AccountProfile, RedeemResult, RedeemLatency
+from app.models import AccountProfile, RedeemResult, RedeemLatency, RedeemStatus
 
 log = logging.getLogger("gamblit_redeemer.accounts")
 
@@ -75,8 +75,17 @@ class ManagedAccount:
             "is_authenticated": is_auth,
             "is_connected": self.client._connected,
             "balance_dl": formatted_bal,
-            "level": profile.level if profile else 1,
+            "level": self.level,
         }
+
+    @property
+    def level(self) -> int:
+        if self.client and self.client._profile and self.client._profile.level is not None:
+            try:
+                return int(self.client._profile.level)
+            except Exception:
+                return 1
+        return 1
 
 
 class AccountManager:
@@ -202,11 +211,27 @@ class AccountManager:
             return True
         return False
 
-    async def redeem_all(self, code: str, captcha_token: str = "") -> List[Dict[str, Any]]:
-        """
-        Redeems promo code across all enabled accounts concurrently (in parallel).
-        """
+    def get_max_level(self) -> int:
+        """Returns the highest level among all enabled accounts."""
         active = [acc for acc in self.accounts.values() if acc.enabled]
+        if not active:
+            return 1
+        return max((acc.level for acc in active), default=1)
+
+    async def redeem_all(
+        self,
+        code: str,
+        req_level: Optional[int] = None,
+        captcha_token: str = "",
+    ) -> List[Dict[str, Any]]:
+        """
+        Redeems promo code across all eligible enabled accounts concurrently (in parallel).
+        If req_level is specified, accounts with level < req_level are safely skipped without wasting requests.
+        """
+        active = [
+            acc for acc in self.accounts.values()
+            if acc.enabled and (req_level is None or req_level <= 0 or acc.level >= req_level)
+        ]
         if not active:
             return []
 
@@ -217,6 +242,8 @@ class AccountManager:
                 "account_id": acc.id,
                 "account_name": acc.name,
                 "username": acc.client._profile.username if acc.client._profile else acc.name,
+                "code": code,
+                "req_level": req_level,
                 "result": res,
             }
 
@@ -226,6 +253,85 @@ class AccountManager:
             if not isinstance(r, Exception):
                 out.append(r)
         return out
+
+    async def redeem_drop(
+        self,
+        level_codes: List[Tuple[int, str]],
+        captcha_pool: Optional[Any] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Redeems a multi-level drop across all active accounts concurrently.
+        For each account, filters codes by (acc.level >= req_level) and executes redemption
+        strictly in descending order (highest reward / highest required level first).
+        Uses captcha tokens on-demand only when a challenge is received.
+        """
+        active = [acc for acc in self.accounts.values() if acc.enabled]
+        if not active or not level_codes:
+            return []
+
+        async def _redeem_account(acc: ManagedAccount) -> List[Dict[str, Any]]:
+            # 1. Filter codes this account is eligible for (acc.level >= req_lvl)
+            # level_codes is already sorted descending by required level
+            eligible = [(lvl, code) for lvl, code in level_codes if acc.level >= lvl]
+            if not eligible:
+                log.info(f"⏭️ [{acc.name}] (Level {acc.level}): Drop kodları seviyesinden yüksek, atlandı.")
+                return []
+
+            acc_results = []
+            log.info(
+                f"🚀 [{acc.name}] (Level {acc.level}): {len(eligible)} adet kod hakkı var! "
+                f"En yüksek ödülden (Level {eligible[0][0]}+) başlayarak alınıyor..."
+            )
+
+            for req_lvl, code in eligible:
+                log.info(f"⚡ [{acc.name}] -> Kod Gönderiliyor: '{code}' (Gereken Level: {req_lvl}+ | Hesap: {acc.level})")
+                lat = RedeemLatency(t0_discord_received=time.time())
+
+                # Step 1: Send redeem request (0ms latency, saves captcha credits)
+                res = await acc.client.redeem_code(code, latency=lat, captcha_token="")
+
+                # Step 2: On-demand Captcha handling
+                is_captcha_err = (
+                    "CAPTCHA" in res.message.upper()
+                    or (res.response_data and "CAPTCHA" in str(res.response_data).upper())
+                )
+                if is_captcha_err and captcha_pool:
+                    log.warning(f"🛡️ [{acc.name}] Captcha engeli ({res.message}). Token havuzundan alınıyor...")
+                    token = await captcha_pool.consume_token()
+                    if not token:
+                        token = await captcha_pool.auto_solve_once()
+                    if token:
+                        lat_retry = RedeemLatency(t0_discord_received=time.time())
+                        res = await acc.client.redeem_code(code, latency=lat_retry, captcha_token=token)
+
+                acc_results.append({
+                    "account_id": acc.id,
+                    "account_name": acc.name,
+                    "username": acc.client._profile.username if acc.client._profile else acc.name,
+                    "code": code,
+                    "req_level": req_lvl,
+                    "result": res,
+                })
+
+                if res.status == RedeemStatus.SUCCESS:
+                    log.info(f"🎉 [{acc.name}] BAŞARIYLA ALINDI! Kod: {code} (Level {req_lvl}+) | {res.message}")
+                else:
+                    log.info(f"📌 [{acc.name}] Kod: {code} -> {res.status.value} ({res.message})")
+
+            return acc_results
+
+        # Execute all accounts concurrently
+        tasks = [_redeem_account(acc) for acc in active]
+        nested_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        flat_results = []
+        for r in nested_results:
+            if isinstance(r, list):
+                flat_results.extend(r)
+            elif isinstance(r, Exception):
+                log.error(f"Error redeeming drop on account: {r}")
+
+        return flat_results
 
     def get_summary(self) -> Dict[str, Any]:
         accs = [acc.to_dict() for acc in self.accounts.values()]

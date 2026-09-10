@@ -77,8 +77,7 @@ class RedeemWorker:
                 self.queue.task_done()
 
     async def process_code(self, item: ParsedCode) -> RedeemResult:
-        """Processes single code redemption with retries and latency tracking."""
-        code = item.code
+        """Processes single code or multi-level drop across accounts."""
         latency = RedeemLatency(
             t0_discord_received=item.received_at,
             t1_parsed=item.parsed_at,
@@ -86,6 +85,42 @@ class RedeemWorker:
             t3_response_received=0.0,
         )
 
+        # 1. Multi-level Drop Mode (All accounts parallel, highest to lowest reward)
+        if item.level_codes:
+            log.info(f"===> [DROP BAŞLADI] {len(item.level_codes)} kodlu drop işleniyor (Tüm hesaplar paralel)...")
+            multi_results = []
+            if self.account_manager and len(self.account_manager.accounts) > 0:
+                multi_results = await self.account_manager.redeem_drop(
+                    item.level_codes, captcha_pool=self.captcha_pool
+                )
+            else:
+                user_lvl = self.client._profile.level if self.client._profile else 1
+                eligible = [(lvl, c) for lvl, c in item.level_codes if user_lvl >= lvl]
+                for req_lvl, c in eligible:
+                    r = await self.client.redeem_code(c, latency=latency)
+                    multi_results.append({"code": c, "req_level": req_lvl, "result": r})
+
+            # Record stats & update DB for each code
+            best_result = None
+            for res_item in multi_results:
+                r = res_item.get("result")
+                if r:
+                    self.metrics.record_redeem(r)
+                    await self.db.update_redeem_result(r)
+                    if r.status == RedeemStatus.SUCCESS and not best_result:
+                        best_result = r
+
+            if not best_result and multi_results:
+                best_result = multi_results[0].get("result")
+
+            return best_result or RedeemResult(
+                code=item.code,
+                status=RedeemStatus.SUCCESS,
+                message=f"Drop processed ({len(multi_results)} claims evaluated)",
+            )
+
+        # 2. Single Code Mode
+        code = item.code
         log.info(f"===> [Redeem Start] Processing code: {code}")
         await self.db.mark_processing(code)
 
@@ -98,10 +133,12 @@ class RedeemWorker:
 
         while attempt <= (self.config.max_retries + 1):
             if self.account_manager and len(self.account_manager.accounts) > 0:
-                multi_results = await self.account_manager.redeem_all(code, captcha_token=captcha_token)
-                for item in multi_results:
-                    acc_name = item.get("account_name", "Hesap")
-                    r = item.get("result")
+                multi_results = await self.account_manager.redeem_all(
+                    code, req_level=item.required_level, captcha_token=captcha_token
+                )
+                for res_entry in multi_results:
+                    acc_name = res_entry.get("account_name", "Hesap")
+                    r = res_entry.get("result")
                     if r:
                         log.info(f"👥 [{acc_name}] Kod: {code} -> {r.status.value} ({r.message}) | {r.latency.http_request_ms:.1f}ms")
                         if r.status == RedeemStatus.SUCCESS:

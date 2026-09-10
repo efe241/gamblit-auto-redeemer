@@ -25,6 +25,7 @@ class DiscordCodeListener(commands.Bot):
         metrics: MetricsTracker,
         db: Database,
         client: GamblitClient,
+        account_manager: Optional[Any] = None,
     ):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -41,6 +42,7 @@ class DiscordCodeListener(commands.Bot):
         self.metrics = metrics
         self.db = db
         self.gamblit_client = client
+        self.account_manager = account_manager
 
     async def setup_hook(self):
         """Registers commands and initializes internal hooks."""
@@ -76,7 +78,6 @@ class DiscordCodeListener(commands.Bot):
 
         # 2. Strict Channel Filtering
         if self.config.discord_channel_id and message.channel.id != self.config.discord_channel_id:
-            # Not target channel -> ignore without processing
             await self.process_commands(message)
             return
 
@@ -86,41 +87,50 @@ class DiscordCodeListener(commands.Bot):
 
         self.metrics.record_received()
 
-        # 4. Parse Code (Hot Path T1)
-        user_level = None
-        if self.gamblit_client and self.gamblit_client._profile:
-            user_level = self.gamblit_client._profile.level
+        # 4. Parse Drop or Code
+        max_level = None
+        if self.account_manager:
+            max_level = self.account_manager.get_max_level()
+        elif self.gamblit_client and getattr(self.gamblit_client, "_profile", None):
+            raw_lvl = getattr(self.gamblit_client._profile, "level", None)
+            if isinstance(raw_lvl, int):
+                max_level = raw_lvl
 
-        parsed_list = CodeParser.parse_all_eligible_codes(
+        drop_item = CodeParser.parse_drop_message(
             content=message.content,
             message_id=message.id,
             channel_id=message.channel.id,
             guild_id=message.guild.id if message.guild else 0,
             author_id=message.author.id,
             received_at=t0,
-            user_level=user_level,
+            max_level=max_level,
         )
 
-        if not parsed_list:
-            # Message contains no valid code pattern
+        if not drop_item:
             await self.process_commands(message)
             return
 
-        for parsed in parsed_list:
-            self.metrics.record_parsed()
+        self.metrics.record_parsed()
+        if drop_item.level_codes:
             log.info(
-                f"⚡ [Kod Algılandı] '{parsed.code}' (#{message.channel}, {message.author}) "
-                f"(Gecikme: {parsed.parse_latency_ms:.2f} ms)"
+                f"⚡ [MULTI-LEVEL DROP] {len(drop_item.level_codes)} kod tespit edildi! "
+                f"En yüksek: '{drop_item.code}' (Level {drop_item.required_level}+)"
+            )
+        else:
+            log.info(
+                f"⚡ [Kod Algılandı] '{drop_item.code}' (#{message.channel}, {message.author}) "
+                f"(Gecikme: {drop_item.parse_latency_ms:.2f} ms)"
             )
 
-            # 5. Non-blocking Enqueue (Hot Path -> Queue -> Worker)
-            enqueued = await self.queue.enqueue(parsed)
-            if enqueued:
-                await self.db.log_event("CODE_ENQUEUED", {
-                    "code": parsed.code,
-                    "message_id": message.id,
-                    "author": str(message.author),
-                })
+        # 5. Non-blocking Enqueue (Hot Path -> Queue -> Worker)
+        enqueued = await self.queue.enqueue(drop_item)
+        if enqueued:
+            await self.db.log_event("CODE_ENQUEUED", {
+                "code": drop_item.code,
+                "message_id": message.id,
+                "author": str(message.author),
+                "is_drop": bool(drop_item.level_codes),
+            })
 
         await self.process_commands(message)
 

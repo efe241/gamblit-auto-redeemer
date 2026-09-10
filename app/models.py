@@ -52,6 +52,8 @@ class ParsedCode:
     received_at: float = field(default_factory=time.time)
     parsed_at: float = field(default_factory=time.time)
     raw_content: str = ""
+    required_level: Optional[int] = None
+    level_codes: Optional[Any] = None  # List[Tuple[int, str]] if multi-level drop
 
     @property
     def parse_latency_ms(self) -> float:
