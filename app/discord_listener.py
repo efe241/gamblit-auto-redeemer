@@ -4,7 +4,7 @@ Zero-blocking event handler that parses messages and enqueues codes.
 """
 import time
 import logging
-from typing import Optional
+from typing import Optional, Any
 import discord
 from discord.ext import commands
 from app.config import Config
