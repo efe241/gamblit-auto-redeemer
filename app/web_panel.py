@@ -1548,7 +1548,8 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
                 <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;">Gerçek Gamblit WebSocket soketinden alınan canlı yanıtlar</div>
             </div>
             <div class="header-links">
-                <a href="/test" class="btn-test">⚡ Yeniden Test Et</a>
+                <a href="/test" class="btn-test">⚡ Hızlı Test (0 Kredi)</a>
+                <a href="/test?solve=1" class="btn-test" style="background: linear-gradient(135deg, #10b981 0%, #0284c7 100%) !important; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;">🛡️ Token Çözerek Test Et (11 Kredi)</a>
                 <a href="/durum">📊 Canlı Durum</a>
                 <a href="/">⚙️ Kontrol Paneli</a>
             </div>
@@ -1936,21 +1937,29 @@ class WebPanel:
         # 3. Fallback known real drop code
         return "NIGHTDROP"
 
-    async def run_redeem_test(self, test_code: Optional[str] = None) -> Dict[str, Any]:
+    async def run_redeem_test(self, test_code: Optional[str] = None, solve_captcha: bool = False) -> Dict[str, Any]:
         if not test_code:
             test_code = await self._get_test_code()
 
         t_start = time.time()
         results = []
 
+        # Check if pool has a token, or solve one if requested
+        captcha_tok = ""
+        if self.captcha_pool:
+            if self.captcha_pool.is_token_valid:
+                captcha_tok = await self.captcha_pool.consume_token() or ""
+            elif solve_captcha:
+                captcha_tok = await self.captcha_pool.auto_solve_once() or ""
+
         if self.account_manager and self.account_manager.accounts:
             results = await self.account_manager.redeem_all(
                 code=test_code,
-                captcha_token="",
+                captcha_token=captcha_tok,
             )
         else:
             lat = RedeemLatency(t0_discord_received=t_start)
-            res = await self.client.redeem_code(test_code, latency=lat)
+            res = await self.client.redeem_code(test_code, latency=lat, captcha_token=captcha_tok)
             results = [{
                 "account_id": "acc_default",
                 "account_name": "Ana Hesap",
@@ -1972,7 +1981,10 @@ class WebPanel:
             lat = res_obj.latency.http_request_ms if (res_obj and res_obj.latency) else 0.0
 
             msg_upper = (str(msg) + " " + str(resp_data)).upper()
-            if "EXPIRED" in msg_upper or "SÜRESİ" in msg_upper or "GEÇERSİZ" in msg_upper or "INVALID" in msg_upper:
+            if "CAPTCHA" in msg_upper:
+                badge_type = "purple"
+                badge_text = "🛡️ Captcha İstendi (Token Gerekli)"
+            elif "EXPIRED" in msg_upper or "SÜRESİ" in msg_upper:
                 badge_type = "warning"
                 badge_text = "ℹ️ Kodun Süresi Dolmuş"
             elif "ALREADY" in msg_upper or "ZATEN" in msg_upper:
@@ -1981,9 +1993,9 @@ class WebPanel:
             elif "SUCCESS" in status_val.upper() or "CLAIM" in msg_upper:
                 badge_type = "success"
                 badge_text = "🎉 Başarıyla Alındı!"
-            elif "CAPTCHA" in msg_upper:
-                badge_type = "purple"
-                badge_text = "🛡️ Captcha İstendi"
+            elif "INVALID" in msg_upper or "GEÇERSİZ" in msg_upper:
+                badge_type = "warning"
+                badge_text = "❌ Geçersiz Kod"
             else:
                 badge_type = "info"
                 badge_text = f"● {status_val}"
@@ -2021,7 +2033,8 @@ class WebPanel:
 
     async def handle_test_redeem(self, request: web.Request) -> web.Response:
         custom_code = request.query.get("code", "").strip() or None
-        await self.run_redeem_test(test_code=custom_code)
+        should_solve = request.query.get("solve", "").lower() in ("1", "true", "yes")
+        await self.run_redeem_test(test_code=custom_code, solve_captcha=should_solve)
         raise web.HTTPFound("/sonuc")
 
     async def handle_test_redeem_api(self, request: web.Request) -> web.Response:
