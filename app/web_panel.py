@@ -1565,7 +1565,7 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="stat-card">
                 <div class="label">⏱️ Sunucu Gecikmesi</div>
                 <div class="val" id="stat-lat" style="color: #34d399;">-- ms</div>
-                <div class="sub">WebSocket RTT süresi</div>
+                <div class="sub" id="stat-lat-sub">WebSocket RTT süresi (Soket hızı)</div>
             </div>
             <div class="stat-card">
                 <div class="label">👥 Test Edilen Hesap</div>
@@ -1651,7 +1651,13 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
 
                 document.getElementById('stat-code').innerText = data.code || '--';
                 document.getElementById('stat-time').innerText = 'Saat: ' + (data.tested_at || '--');
-                document.getElementById('stat-lat').innerText = (data.total_latency_ms || 0).toFixed(1) + ' ms';
+                const latVal = data.server_latency_ms !== undefined ? data.server_latency_ms : (data.total_latency_ms || 0);
+                document.getElementById('stat-lat').innerText = latVal.toFixed(1) + ' ms';
+                if (data.captcha_solve_time_sec && data.captcha_solve_time_sec > 0) {
+                    document.getElementById('stat-lat-sub').innerText = `Soket: ${latVal.toFixed(1)}ms • Token çözme: ${data.captcha_solve_time_sec}s`;
+                } else {
+                    document.getElementById('stat-lat-sub').innerText = 'WebSocket RTT süresi (Soket hızı)';
+                }
                 document.getElementById('stat-accs').innerText = (data.accounts_count || 0) + ' Hesap';
                 document.getElementById('stat-ws').innerText = data.ws_connected ? '✅ Aktif' : '❌ Bağlı Değil';
 
@@ -1982,24 +1988,28 @@ class WebPanel:
         if not test_code:
             test_code = await self._get_test_code()
 
-        t_start = time.time()
         results = []
 
         # Check if pool has a token, or solve one if requested
         captcha_tok = ""
+        captcha_solve_sec = 0.0
         if self.captcha_pool:
             if self.captcha_pool.is_token_valid:
                 captcha_tok = await self.captcha_pool.consume_token() or ""
             elif solve_captcha:
+                t_c0 = time.time()
                 captcha_tok = await self.captcha_pool.auto_solve_once() or ""
+                captcha_solve_sec = round(time.time() - t_c0, 2)
 
+        # Measure pure Gamblit WebSocket communication latency (RTT)
+        t_socket_start = time.time()
         if self.account_manager and self.account_manager.accounts:
             results = await self.account_manager.redeem_all(
                 code=test_code,
                 captcha_token=captcha_tok,
             )
         else:
-            lat = RedeemLatency(t0_discord_received=t_start)
+            lat = RedeemLatency(t0_discord_received=t_socket_start)
             res = await self.client.redeem_code(test_code, latency=lat, captcha_token=captcha_tok)
             results = [{
                 "account_id": "acc_default",
@@ -2011,15 +2021,20 @@ class WebPanel:
                 "result": res,
             }]
 
-        total_lat_ms = (time.time() - t_start) * 1000.0
+        socket_lat_ms = (time.time() - t_socket_start) * 1000.0
 
         formatted_accs = []
+        best_socket_lat = None
         for r in results:
             res_obj = r.get("result")
             status_val = res_obj.status.value if res_obj else "UNKNOWN"
             msg = res_obj.message if res_obj else "Yanıt yok"
             resp_data = res_obj.response_data if res_obj else {}
-            lat = res_obj.latency.http_request_ms if (res_obj and res_obj.latency) else 0.0
+            
+            # Exact WebSocket RTT recorded inside redeem_code()
+            acc_lat = res_obj.latency.http_request_ms if (res_obj and res_obj.latency and res_obj.latency.http_request_ms > 0) else socket_lat_ms
+            if best_socket_lat is None or acc_lat < best_socket_lat:
+                best_socket_lat = acc_lat
 
             msg_upper = (str(msg) + " " + str(resp_data)).upper()
             is_success = (status_val.upper() == "SUCCESS") or (isinstance(resp_data, dict) and resp_data.get("success") is True)
@@ -2057,14 +2072,19 @@ class WebPanel:
                 "badge_type": badge_type,
                 "badge_text": badge_text,
                 "message": msg,
-                "latency_ms": round(lat, 2) if lat else round(total_lat_ms, 2),
+                "latency_ms": round(acc_lat, 2),
                 "response_data": resp_data,
             })
+
+        display_socket_latency_ms = round(best_socket_lat if best_socket_lat is not None else socket_lat_ms, 2)
 
         test_data = {
             "tested_at": time.strftime("%H:%M:%S"),
             "code": test_code,
-            "total_latency_ms": round(total_lat_ms, 2),
+            "server_latency_ms": display_socket_latency_ms,
+            "total_latency_ms": display_socket_latency_ms,
+            "captcha_solve_time_sec": captcha_solve_sec,
+            "captcha_token_used": bool(captcha_tok),
             "accounts_count": len(formatted_accs),
             "accounts": formatted_accs,
             "ws_connected": self.client._connected,
