@@ -1950,11 +1950,12 @@ class WebPanel:
         return web.Response(status=200)
 
     async def handle_health(self, request: web.Request) -> web.Response:
+        ws_conn = any(a.client._connected for a in self.account_manager.accounts.values() if a.enabled) if (self.account_manager and self.account_manager.accounts) else self.client._connected
         return web.json_response({
             "status": "ok",
             "uptime": "active",
             "time_tr": self.config.get_tr_now().strftime("%H:%M:%S"),
-            "ws_connected": self.client._connected,
+            "ws_connected": ws_conn,
         })
 
     async def handle_index(self, request: web.Request) -> web.Response:
@@ -2136,6 +2137,7 @@ class WebPanel:
             })
 
         display_socket_latency_ms = round(best_socket_lat if best_socket_lat is not None else socket_lat_ms, 2)
+        ws_conn = any(a.client._connected for a in self.account_manager.accounts.values() if a.enabled) if (self.account_manager and self.account_manager.accounts) else self.client._connected
 
         test_data = {
             "tested_at": self.config.get_tr_now().strftime("%H:%M:%S"),
@@ -2146,7 +2148,7 @@ class WebPanel:
             "captcha_token_used": bool(captcha_tok),
             "accounts_count": len(formatted_accs),
             "accounts": formatted_accs,
-            "ws_connected": self.client._connected,
+            "ws_connected": ws_conn,
         }
 
         self._last_test_result = test_data

@@ -126,14 +126,10 @@ class GamblitClient:
                 return False
 
             cookie_header = self._build_cookie_header()
-            # Dual-domain failover (gamblit.co is unblocked in TR; gamblit.net fallback)
-            primary_co = "gamblit.co" in self.config.gamblit_base_url or "gamblit.co" in cookie_header
+            # ws.gamblit.co is the active unblocked API; ws.gamblit.net as secondary
             ws_candidates = [
                 ("wss://ws.gamblit.co", "https://gamblit.co"),
                 ("wss://ws.gamblit.net", "https://gamblit.net"),
-            ] if primary_co else [
-                ("wss://ws.gamblit.net", "https://gamblit.net"),
-                ("wss://ws.gamblit.co", "https://gamblit.co"),
             ]
 
             for target_ws_uri, target_origin in ws_candidates:
@@ -177,13 +173,32 @@ class GamblitClient:
                         if self._profile and self._profile.is_authenticated:
                             log.info(f"✅ Gamblit WebSocket bağlandı! Giriş: '{self._profile.username}' (Bakiye: {self._profile.balance_dl} DL)")
                             return True
+                        if not self._connected:
+                            break
                         await asyncio.sleep(0.15)
 
                     if self._profile and self._profile.is_authenticated:
                         return True
 
+                    # Did not authenticate on this candidate, clean up and try next
+                    if self._listen_task:
+                        self._listen_task.cancel()
+                    if self._ping_task:
+                        self._ping_task.cancel()
+                    if self._ws:
+                        try:
+                            await self._ws.close()
+                        except Exception:
+                            pass
+                        self._ws = None
+                    self._connected = False
+
                 except Exception as e:
                     log.debug(f"WebSocket connect to {target_ws_uri} failed ({e}).")
+                    if self._listen_task:
+                        self._listen_task.cancel()
+                    if self._ping_task:
+                        self._ping_task.cancel()
                     if self._ws:
                         try:
                             await self._ws.close()
