@@ -41,7 +41,7 @@ def _tr_time_converter(secs=None):
         secs = time.time()
     return datetime.datetime.fromtimestamp(secs, _TR_TZ).timetuple()
 
-_RECENT_LOGS = collections.deque(maxlen=200)
+_RECENT_LOGS = collections.deque(maxlen=500)
 
 class RingBufferLogHandler(logging.Handler):
     """Keeps the last N log lines in memory with timestamp and level for the Web Panel."""

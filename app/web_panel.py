@@ -2237,7 +2237,7 @@ class WebPanel:
             "channel_id": str(self.config.discord_channel_id),
         }
 
-        live_logs = get_recent_logs(limit=40)
+        live_logs = get_recent_logs(limit=100)
         in_sched = self.config.is_in_schedule()
 
         is_any_authenticated = bool(profile and profile.is_authenticated)
