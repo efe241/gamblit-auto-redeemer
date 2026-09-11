@@ -1604,9 +1604,28 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="info-box">
             💡 <strong>Nasıl Yorumlanmalı?</strong> Bu test, Gamblit WebSocket sunucusuna <code>ClaimPromoCode</code> istek paketi fırlatarak yapılmıştır. Kod eski olduğu için sunucunun <em>"Code expired"</em> veya <em>"Invalid"</em> cevabı dönmesi; <strong>WebSocket bağlantınızın açık olduğunu, oturumunuzun aktif olduğunu ve sunucunun botunuzun isteklerine milisaniyeler içinde cevap verdiğini</strong> kesin olarak kanıtlar!
         </div>
+
+        <div class="section-title" style="margin-top: 28px;">
+            💻 Dönen Ham JSON Yanıtı (Full API & WebSocket Response)
+        </div>
+
+        <div style="background: rgba(10, 15, 24, 0.95); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px 20px; position: relative; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 11.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">RAW JSON RESPONSE</span>
+                <button onclick="copyRawJson()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #f1f5f9; font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 6px; cursor: pointer;">📋 Kopyala</button>
+            </div>
+            <pre id="raw-json-box" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.5; color: #38bdf8; overflow-x: auto; max-height: 420px; white-space: pre-wrap; word-break: break-all; margin: 0;"></pre>
+        </div>
     </div>
 
     <script>
+        function copyRawJson() {
+            const text = document.getElementById('raw-json-box').innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("📋 Ham JSON panoya kopyalandı!");
+            });
+        }
+
         async function loadSonuc() {
             try {
                 const res = await fetch('/api/sonuc');
@@ -1614,6 +1633,7 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
                 if (!data || data.status === 'none') {
                     document.getElementById('stat-code').innerText = 'Test Yok';
                     document.getElementById('results-body').innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">Henüz test çalıştırılmadı. <a href="/test" style="color: #38bdf8; font-weight: 700;">Buraya tıklayarak ilk testi yapabilirsiniz.</a></td></tr>';
+                    document.getElementById('raw-json-box').innerText = '{}';
                     return;
                 }
 
@@ -1622,6 +1642,8 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('stat-lat').innerText = (data.total_latency_ms || 0).toFixed(1) + ' ms';
                 document.getElementById('stat-accs').innerText = (data.accounts_count || 0) + ' Hesap';
                 document.getElementById('stat-ws').innerText = data.ws_connected ? '✅ Aktif' : '❌ Bağlı Değil';
+
+                document.getElementById('raw-json-box').innerText = JSON.stringify(data, null, 2);
 
                 const tbody = document.getElementById('results-body');
                 if (!data.accounts || data.accounts.length === 0) {
