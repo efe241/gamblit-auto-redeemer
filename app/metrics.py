@@ -31,7 +31,11 @@ class MetricsTracker:
             self.total_failed += 1
 
         if result.latency.total_ms > 0:
-            self.recent_latencies.append(result.latency.total_ms)
+            self.record_latency(result.latency.total_ms)
+
+    def record_latency(self, latency_ms: float):
+        if latency_ms > 0:
+            self.recent_latencies.append(latency_ms)
             if len(self.recent_latencies) > 100:
                 self.recent_latencies.pop(0)
 

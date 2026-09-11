@@ -272,6 +272,28 @@ class GamblitClient:
 
         return self._profile or AccountProfile(is_authenticated=False)
 
+    async def measure_ws_latency(self) -> float:
+        """
+        Accurately measures pure Gamblit WebSocket RTT latency in milliseconds.
+        Completely free of captchas, zero credits used.
+        """
+        if not self._connected or not self._ws:
+            ws_ok = await self.connect_ws()
+            if not ws_ok or not self._ws:
+                return 0.0
+
+        fut = asyncio.get_running_loop().create_future()
+        self._pending_responses["UserData"] = fut
+        t0 = time.time()
+        try:
+            await self._ws.send(msgpack.packb({"ID": "GetUserData"}))
+            await asyncio.wait_for(fut, timeout=3.0)
+            latency_ms = (time.time() - t0) * 1000.0
+            return round(latency_ms, 2)
+        except Exception:
+            self._pending_responses.pop("UserData", None)
+            return 0.0
+
     async def check_health(self) -> bool:
         p = await self.get_profile()
         return p.is_authenticated

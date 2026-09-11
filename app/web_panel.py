@@ -348,7 +348,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <h2>⏱️ Performans & Hız</h2>
             <div class="metric-val" id="avg-lat">0 ms</div>
             <div style="margin-top: 8px; font-size: 13px; color: #8b949e;">
-                Ortalama WebSocket Yanıt Gecikmesi
+                Ortalama WebSocket Yanıt Gecikmesi <span style="font-size: 11px; color: #38bdf8;">(10 dk'da bir güncellenir • 0 Kredi)</span>
             </div>
         </div>
         <div class="card">
@@ -1732,6 +1732,7 @@ class WebPanel:
         self.account_manager = account_manager
         self.port = port
         self._last_test_result: Optional[Dict[str, Any]] = None
+        self._latency_ping_task: Optional[asyncio.Task] = None
         # Add CORS middleware so console snippets on gamblit.net can inject tokens directly
         @web.middleware
         async def cors_middleware(request, handler):
@@ -2420,6 +2421,28 @@ LOG_FILE={self.config.log_file}
             return web.json_response({"status": "injected"})
         return web.json_response({"error": "Empty token"}, status=400)
 
+    async def _latency_ping_loop(self):
+        """
+        Runs automatically every 10 minutes to measure pure WebSocket RTT latency.
+        Completely free of captchas (0 credits used), updating the Performance card on the UI.
+        """
+        # Wait 10 seconds initially for WS connection to stabilize
+        await asyncio.sleep(10)
+        while True:
+            try:
+                if self.client and "gamblit" in self.config.gamblit_base_url:
+                    lat_ms = await self.client.measure_ws_latency()
+                    if lat_ms > 0 and self.metrics:
+                        self.metrics.record_latency(lat_ms)
+                        log.info(f"⏱️ [10dk Otomatik Soket Ölçümü] WebSocket gecikmesi güncellendi: {lat_ms:.1f} ms (0 Kredi)")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.debug(f"Otomatik ping ölçüm hatası: {e}")
+            
+            # Wait 10 minutes (600 seconds)
+            await asyncio.sleep(600)
+
     async def start(self):
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
@@ -2431,6 +2454,8 @@ LOG_FILE={self.config.log_file}
                 await site.start()
                 self.port = p
                 print(f"\n🌐 Web Kontrol Paneli Yayında: http://localhost:{self.port}\n")
+                if not self._latency_ping_task or self._latency_ping_task.done():
+                    self._latency_ping_task = asyncio.create_task(self._latency_ping_loop(), name="LatencyPingLoop")
                 return
             except OSError as e:
                 # WinError 10048 (Windows) or 98 (Linux): Port already in use
@@ -2440,5 +2465,8 @@ LOG_FILE={self.config.log_file}
         raise OSError(f"Port 5050-5055 arası tüm portlar meşgul!")
 
     async def stop(self):
+        if self._latency_ping_task:
+            self._latency_ping_task.cancel()
+            self._latency_ping_task = None
         if self.runner:
             await self.runner.cleanup()
