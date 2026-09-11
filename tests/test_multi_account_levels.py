@@ -343,6 +343,43 @@ async def test_durum_page_and_api(tmp_path):
     assert data["accounts"][0]["username"] == "Tipisteme"
     assert data["accounts"][0]["level"] == 42
 
+    # Test /sonuc before any run
+    resp_sonuc_empty = await panel.handle_sonuc_api(req)
+    data_empty = json.loads(resp_sonuc_empty.text)
+    assert data_empty.get("status") == "none"
+
+    resp_sonuc_html = await panel.handle_sonuc(req)
+    assert resp_sonuc_html.status == 200
+    assert "Test Redeem Sonuçları" in resp_sonuc_html.text
+
+    # Mock redeem_code response
+    from app.models import RedeemResult, RedeemStatus
+    async def mock_expired_redeem(c, **kwargs):
+        return RedeemResult(code=c, status=RedeemStatus.EXPIRED, message="Code has expired")
+
+    acc1.client.redeem_code = mock_expired_redeem
+
+    # Run test
+    test_res = await panel.run_redeem_test("OLDDROP123")
+    assert test_res["code"] == "OLDDROP123"
+    assert test_res["accounts_count"] == 1
+    assert test_res["accounts"][0]["badge_type"] == "warning"
+    assert "Süresi Dolmuş" in test_res["accounts"][0]["badge_text"]
+
+    # Verify /api/sonuc returns this test result
+    resp_sonuc_filled = await panel.handle_sonuc_api(req)
+    data_filled = json.loads(resp_sonuc_filled.text)
+    assert data_filled["code"] == "OLDDROP123"
+    assert len(data_filled["accounts"]) == 1
+
+    # Verify /test redirects to /sonuc
+    from aiohttp import web
+    req_test = MagicMock()
+    req_test.query = {"code": "OLDDROP123"}
+    with pytest.raises(web.HTTPFound) as exc_info:
+        await panel.handle_test_redeem(req_test)
+    assert exc_info.value.location == "/sonuc"
+
     await db.close()
     await mgr.close_all()
 

@@ -326,6 +326,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <a href="/test" style="color: #c084fc; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3);">🧪 Test Et (/test)</a>
             <a href="/durum" style="color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);">📊 Canlı Durum (/durum)</a>
             <span id="dc-badge" class="badge badge-purple">Discord: Bekleniyor</span>
             <span id="solver-badge" class="badge badge-purple">Çözücü: Manuel Mod</span>
@@ -1254,6 +1255,8 @@ DURUM_HTML_TEMPLATE = """<!DOCTYPE html>
                 <span class="live-badge"><span class="live-dot"></span> SİSTEM CANLI</span>
             </div>
             <div class="header-links">
+                <a href="/test" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #c084fc;">🧪 Eski Kodla Test Et (/test)</a>
+                <a href="/sonuc">📋 Test Sonucu</a>
                 <a href="/">⚙️ Kontrol Paneli</a>
             </div>
         </header>
@@ -1373,6 +1376,283 @@ DURUM_HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
+SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Redeem Sonuçları • Gamblit Auto-Redeemer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --surface: #0c1017;
+            --card-bg: rgba(16, 22, 34, 0.85);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent: #38bdf8;
+            --accent-purple: #a855f7;
+            --accent-green: #10b981;
+            --accent-red: #f43f5e;
+            --accent-yellow: #f59e0b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .title-area h1 { font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        .header-links { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .header-links a {
+            text-decoration: none;
+            font-size: 12.5px;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .header-links a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        .btn-test {
+            background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%) !important;
+            color: white !important;
+            border: none !important;
+            box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);
+        }
+        .btn-test:hover { opacity: 0.95; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 18px 20px;
+        }
+        .stat-card .label { font-size: 11.5px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px; }
+        .stat-card .val { font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .stat-card .sub { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+        .section-title {
+            font-size: 15px;
+            font-weight: 800;
+            margin: 28px 0 14px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #cbd5e1;
+        }
+        .results-table-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+            margin-bottom: 24px;
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th {
+            background: rgba(0, 0, 0, 0.3);
+            color: #94a3b8;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 700;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 13px;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .badge-info {
+            background: rgba(56, 189, 248, 0.15);
+            color: #7dd3fc;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+        .badge-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .badge-purple {
+            background: rgba(168, 85, 247, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+        .info-box {
+            background: rgba(56, 189, 248, 0.06);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #94a3b8;
+        }
+        .info-box strong { color: var(--text-main); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title-area">
+                <h1>🧪 Test Redeem Sonuçları</h1>
+                <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;">Gerçek Gamblit WebSocket soketinden alınan canlı yanıtlar</div>
+            </div>
+            <div class="header-links">
+                <a href="/test" class="btn-test">⚡ Yeniden Test Et</a>
+                <a href="/durum">📊 Canlı Durum</a>
+                <a href="/">⚙️ Kontrol Paneli</a>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">🎯 Test Edilen Kod</div>
+                <div class="val" id="stat-code" style="color: #38bdf8;">--</div>
+                <div class="sub" id="stat-time">Test saati: --</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">⏱️ Sunucu Gecikmesi</div>
+                <div class="val" id="stat-lat" style="color: #34d399;">-- ms</div>
+                <div class="sub">WebSocket RTT süresi</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">👥 Test Edilen Hesap</div>
+                <div class="val" id="stat-accs">--</div>
+                <div class="sub">Eşzamanlı denenmiş hesap</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">📡 Soket Durumu</div>
+                <div class="val" id="stat-ws" style="color: #38bdf8;">--</div>
+                <div class="sub">Gamblit WS bağlantısı</div>
+            </div>
+        </div>
+
+        <div class="section-title">
+            📋 Hesap Bazlı Sunucu Yanıtları
+        </div>
+
+        <div class="results-table-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hesap</th>
+                        <th>Seviye</th>
+                        <th>Kod</th>
+                        <th>Gamblit Sunucu Mesajı</th>
+                        <th>Durum</th>
+                        <th>Gecikme</th>
+                    </tr>
+                </thead>
+                <tbody id="results-body">
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">Sonuçlar yükleniyor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="info-box">
+            💡 <strong>Nasıl Yorumlanmalı?</strong> Bu test, Gamblit WebSocket sunucusuna <code>ClaimPromoCode</code> istek paketi fırlatarak yapılmıştır. Kod eski olduğu için sunucunun <em>"Code expired"</em> veya <em>"Invalid"</em> cevabı dönmesi; <strong>WebSocket bağlantınızın açık olduğunu, oturumunuzun aktif olduğunu ve sunucunun botunuzun isteklerine milisaniyeler içinde cevap verdiğini</strong> kesin olarak kanıtlar!
+        </div>
+    </div>
+
+    <script>
+        async function loadSonuc() {
+            try {
+                const res = await fetch('/api/sonuc');
+                const data = await res.json();
+                if (!data || data.status === 'none') {
+                    document.getElementById('stat-code').innerText = 'Test Yok';
+                    document.getElementById('results-body').innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">Henüz test çalıştırılmadı. <a href="/test" style="color: #38bdf8; font-weight: 700;">Buraya tıklayarak ilk testi yapabilirsiniz.</a></td></tr>';
+                    return;
+                }
+
+                document.getElementById('stat-code').innerText = data.code || '--';
+                document.getElementById('stat-time').innerText = 'Saat: ' + (data.tested_at || '--');
+                document.getElementById('stat-lat').innerText = (data.total_latency_ms || 0).toFixed(1) + ' ms';
+                document.getElementById('stat-accs').innerText = (data.accounts_count || 0) + ' Hesap';
+                document.getElementById('stat-ws').innerText = data.ws_connected ? '✅ Aktif' : '❌ Bağlı Değil';
+
+                const tbody = document.getElementById('results-body');
+                if (!data.accounts || data.accounts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #94a3b8;">Hesap sonucu bulunamadı.</td></tr>';
+                    return;
+                }
+
+                let rows = '';
+                for (const a of data.accounts) {
+                    const badgeClass = `badge-${a.badge_type || 'info'}`;
+                    rows += `
+                        <tr>
+                            <td><strong>${a.account_name || 'Hesap'}</strong><div style="font-size: 11px; color: #64748b;">${a.username || ''}</div></td>
+                            <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #38bdf8;">LVL ${a.level || 1}</span></td>
+                            <td><code style="font-family: 'JetBrains Mono', monospace; font-weight: 700; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; color: #c084fc;">${a.code || '--'}</code></td>
+                            <td>${a.message || '--'}</td>
+                            <td><span class="badge ${badgeClass}">${a.badge_text || a.status}</span></td>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700;">${(a.latency_ms || 0).toFixed(1)} ms</td>
+                        </tr>
+                    `;
+                }
+                tbody.innerHTML = rows;
+            } catch(e) {
+                console.error("Sonuç yükleme hatası:", e);
+            }
+        }
+        loadSonuc();
+    </script>
+</body>
+</html>
+"""
+
 
 class WebPanel:
     def __init__(
@@ -1396,6 +1676,7 @@ class WebPanel:
         self.gateway_listener = gateway_listener
         self.account_manager = account_manager
         self.port = port
+        self._last_test_result: Optional[Dict[str, Any]] = None
         # Add CORS middleware so console snippets on gamblit.net can inject tokens directly
         @web.middleware
         async def cors_middleware(request, handler):
@@ -1419,6 +1700,10 @@ class WebPanel:
         self.app.router.add_get("/", self.handle_index)
         self.app.router.add_get("/durum", self.handle_durum)
         self.app.router.add_get("/api/durum", self.handle_durum_api)
+        self.app.router.add_get("/test", self.handle_test_redeem)
+        self.app.router.add_post("/api/test", self.handle_test_redeem_api)
+        self.app.router.add_get("/sonuc", self.handle_sonuc)
+        self.app.router.add_get("/api/sonuc", self.handle_sonuc_api)
         self.app.router.add_get("/api/status", self.handle_status)
         self.app.router.add_get("/api/config", self.handle_get_config)
         self.app.router.add_post("/api/config", self.handle_save_config)
@@ -1611,6 +1896,148 @@ class WebPanel:
             },
             "accounts": summary.get("accounts", []),
         })
+
+    async def _get_test_code(self) -> str:
+        # 1. Check DB for the most recent code
+        try:
+            async with self.db._connection.cursor() as cursor:
+                await cursor.execute("SELECT code FROM codes ORDER BY id DESC LIMIT 1")
+                row = await cursor.fetchone()
+                if row and row["code"]:
+                    return row["code"]
+        except Exception:
+            pass
+
+        # 2. Check Discord channel messages if token present
+        if self.config.discord_token and self.config.discord_channel_id:
+            try:
+                import aiohttp
+                headers = {
+                    "Authorization": self.config.discord_token,
+                    "User-Agent": "Mozilla/5.0",
+                }
+                url = f"https://discord.com/api/v10/channels/{self.config.discord_channel_id}/messages?limit=20"
+                async with aiohttp.ClientSession(headers=headers) as session:
+                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=3.0)) as resp:
+                        if resp.status == 200:
+                            msgs = await resp.json()
+                            from app.parser import extract_level_codes, extract_code_from_text
+                            for m in msgs:
+                                content = m.get("content", "")
+                                l_codes = extract_level_codes(content)
+                                if l_codes:
+                                    return l_codes[0][1]
+                                c = extract_code_from_text(content)
+                                if c:
+                                    return c
+            except Exception:
+                pass
+
+        # 3. Fallback known real drop code
+        return "NIGHTDROP"
+
+    async def run_redeem_test(self, test_code: Optional[str] = None) -> Dict[str, Any]:
+        if not test_code:
+            test_code = await self._get_test_code()
+
+        t_start = time.time()
+        results = []
+
+        if self.account_manager and self.account_manager.accounts:
+            results = await self.account_manager.redeem_all(
+                code=test_code,
+                captcha_token="",
+            )
+        else:
+            lat = RedeemLatency(t0_discord_received=t_start)
+            res = await self.client.redeem_code(test_code, latency=lat)
+            results = [{
+                "account_id": "acc_default",
+                "account_name": "Ana Hesap",
+                "username": self.client._profile.username if self.client._profile else "Ana Hesap",
+                "level": self.client._profile.level if self.client._profile else 1,
+                "code": test_code,
+                "req_level": 0,
+                "result": res,
+            }]
+
+        total_lat_ms = (time.time() - t_start) * 1000.0
+
+        formatted_accs = []
+        for r in results:
+            res_obj = r.get("result")
+            status_val = res_obj.status.value if res_obj else "UNKNOWN"
+            msg = res_obj.message if res_obj else "Yanıt yok"
+            resp_data = res_obj.response_data if res_obj else {}
+            lat = res_obj.latency.http_request_ms if (res_obj and res_obj.latency) else 0.0
+
+            msg_upper = (str(msg) + " " + str(resp_data)).upper()
+            if "EXPIRED" in msg_upper or "SÜRESİ" in msg_upper or "GEÇERSİZ" in msg_upper or "INVALID" in msg_upper:
+                badge_type = "warning"
+                badge_text = "ℹ️ Kodun Süresi Dolmuş"
+            elif "ALREADY" in msg_upper or "ZATEN" in msg_upper:
+                badge_type = "info"
+                badge_text = "ℹ️ Zaten Alınmış"
+            elif "SUCCESS" in status_val.upper() or "CLAIM" in msg_upper:
+                badge_type = "success"
+                badge_text = "🎉 Başarıyla Alındı!"
+            elif "CAPTCHA" in msg_upper:
+                badge_type = "purple"
+                badge_text = "🛡️ Captcha İstendi"
+            else:
+                badge_type = "info"
+                badge_text = f"● {status_val}"
+
+            acc_id = r.get("account_id")
+            lvl = r.get("level")
+            if not lvl and self.account_manager and acc_id in self.account_manager.accounts:
+                lvl = self.account_manager.accounts[acc_id].level
+
+            formatted_accs.append({
+                "account_id": acc_id,
+                "account_name": r.get("account_name"),
+                "username": r.get("username"),
+                "level": lvl or 1,
+                "code": r.get("code"),
+                "status": status_val,
+                "badge_type": badge_type,
+                "badge_text": badge_text,
+                "message": msg,
+                "latency_ms": round(lat, 2) if lat else round(total_lat_ms, 2),
+                "response_data": resp_data,
+            })
+
+        test_data = {
+            "tested_at": time.strftime("%H:%M:%S"),
+            "code": test_code,
+            "total_latency_ms": round(total_lat_ms, 2),
+            "accounts_count": len(formatted_accs),
+            "accounts": formatted_accs,
+            "ws_connected": self.client._connected,
+        }
+
+        self._last_test_result = test_data
+        return test_data
+
+    async def handle_test_redeem(self, request: web.Request) -> web.Response:
+        custom_code = request.query.get("code", "").strip() or None
+        await self.run_redeem_test(test_code=custom_code)
+        raise web.HTTPFound("/sonuc")
+
+    async def handle_test_redeem_api(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json() if request.can_read_body else {}
+        except Exception:
+            data = {}
+        code = data.get("code", "").strip() or None
+        result = await self.run_redeem_test(test_code=code)
+        return web.json_response(result)
+
+    async def handle_sonuc(self, request: web.Request) -> web.Response:
+        return web.Response(text=SONUC_HTML_TEMPLATE, content_type="text/html")
+
+    async def handle_sonuc_api(self, request: web.Request) -> web.Response:
+        return web.json_response(self._last_test_result or {"status": "none"})
 
     async def handle_status(self, request: web.Request) -> web.Response:
         profile = await self.client.get_profile()
