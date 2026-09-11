@@ -21,6 +21,21 @@ _PONG_PACKET = msgpack.packb({"ID": "Pong"}, use_bin_type=True)
 _GET_USER_DATA_PACKET = msgpack.packb({"ID": "GetUserData"}, use_bin_type=True)
 
 
+async def safe_ws_connect(uri: str, headers: Optional[Dict[str, str]] = None, **kwargs):
+    """
+    Safely connects to WebSocket across all websockets versions (10, 11, 12, 13, 14).
+    Dynamically falls back between additional_headers (modern asyncio) and extra_headers (legacy).
+    """
+    if not headers:
+        return await websockets.connect(uri, **kwargs)
+    try:
+        return await websockets.connect(uri, additional_headers=headers, **kwargs)
+    except Exception as e:
+        if "additional_headers" in str(e) or "unexpected keyword" in str(e):
+            return await websockets.connect(uri, extra_headers=headers, **kwargs)
+        raise
+
+
 def xp_required_for_level(lvl: int) -> float:
     """Exact XP requirement calculation matching Gamblit frontend (Lm function)."""
     if lvl < 5:
@@ -141,14 +156,12 @@ class GamblitClient:
 
                 try:
                     log.debug(f"Connecting to Gamblit WebSocket ({target_ws_uri})...")
-                    self._ws = await websockets.connect(
+                    self._ws = await safe_ws_connect(
                         target_ws_uri,
-                        extra_headers=headers,
+                        headers=headers,
                         open_timeout=4.0,
                         ping_interval=None,
-                        compression=None,
                         close_timeout=1.0,
-                        max_size=2**20,
                     )
                     # Optimize TCP socket: disable Nagle's algorithm (TCP_NODELAY) for zero latency
                     try:
