@@ -2003,7 +2003,11 @@ class WebPanel:
             lat = res_obj.latency.http_request_ms if (res_obj and res_obj.latency) else 0.0
 
             msg_upper = (str(msg) + " " + str(resp_data)).upper()
-            if "CAPTCHA" in msg_upper:
+            is_success = (status_val.upper() == "SUCCESS") or (isinstance(resp_data, dict) and resp_data.get("success") is True)
+            if is_success:
+                badge_type = "success"
+                badge_text = "🎉 Başarıyla Alındı!"
+            elif "CAPTCHA" in msg_upper:
                 badge_type = "purple"
                 badge_text = "🛡️ Captcha İstendi (Token Gerekli)"
             elif "EXPIRED" in msg_upper or "SÜRESİ" in msg_upper:
@@ -2012,10 +2016,7 @@ class WebPanel:
             elif "ALREADY" in msg_upper or "ZATEN" in msg_upper:
                 badge_type = "info"
                 badge_text = "ℹ️ Zaten Alınmış"
-            elif "SUCCESS" in status_val.upper() or "CLAIM" in msg_upper:
-                badge_type = "success"
-                badge_text = "🎉 Başarıyla Alındı!"
-            elif "INVALID" in msg_upper or "GEÇERSİZ" in msg_upper:
+            elif "INVALID_CODE" in msg_upper or "INVALID" in msg_upper or "GEÇERSİZ" in msg_upper:
                 badge_type = "warning"
                 badge_text = "❌ Geçersiz Kod"
             else:
