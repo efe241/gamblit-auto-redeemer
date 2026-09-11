@@ -1727,9 +1727,9 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
     </script>
 </body>
 </html>
-\"\"\"
+"""
 
-LOGS_HTML_TEMPLATE = \"\"\"<!DOCTYPE html>
+LOGS_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
