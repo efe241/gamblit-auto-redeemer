@@ -172,17 +172,25 @@ class AccountManager:
             if self.accounts["acc_default"].raw_cookies == self.accounts["acc_1"].raw_cookies:
                 del self.accounts["acc_default"]
 
-        # Auto-import default account from GAMBLIT_COOKIES if list is still empty
-        if not self.accounts and self.config.raw_cookies and self.config.raw_cookies != "{}":
+        # Always sync acc_default with GAMBLIT_COOKIES from environment
+        if self.config.raw_cookies and self.config.raw_cookies.strip() and self.config.raw_cookies.strip() != "{}":
             default_id = "acc_default"
-            acc = ManagedAccount(
-                account_id=default_id,
-                name="Ana Hesap",
-                cookies=self.config.raw_cookies,
-                enabled=True,
-                config=self.config,
-            )
-            self.accounts[default_id] = acc
+            env_cookies = self.config.raw_cookies.strip()
+            if default_id in self.accounts:
+                self.accounts[default_id].raw_cookies = env_cookies
+                self.accounts[default_id].config.raw_cookies = env_cookies
+                self.accounts[default_id].config._parsed_cookies = None
+                self.accounts[default_id].client.config.raw_cookies = env_cookies
+                self.accounts[default_id].client.config._parsed_cookies = None
+            else:
+                acc = ManagedAccount(
+                    account_id=default_id,
+                    name="Ana Hesap",
+                    cookies=env_cookies,
+                    enabled=True,
+                    config=self.config,
+                )
+                self.accounts[default_id] = acc
             self._save()
 
     def _save(self):

@@ -2176,7 +2176,23 @@ class WebPanel:
         return web.json_response(self._last_test_result or {"status": "none"})
 
     async def handle_status(self, request: web.Request) -> web.Response:
-        profile = await self.client.get_profile()
+        profile = None
+        if self.account_manager:
+            for aid in ("acc_default", "acc_1"):
+                if aid in self.account_manager.accounts:
+                    p = self.account_manager.accounts[aid].client._profile
+                    if p and p.is_authenticated:
+                        profile = p
+                        break
+            if not profile:
+                for acc in self.account_manager.accounts.values():
+                    p = acc.client._profile
+                    if p and p.is_authenticated:
+                        profile = p
+                        break
+        if not profile:
+            profile = await self.client.get_profile()
+
         stats = await self.db.get_stats()
         balances = await self.captcha_pool.get_balances()
 
@@ -2223,12 +2239,16 @@ class WebPanel:
         live_logs = get_recent_logs(limit=40)
         in_sched = self.config.is_in_schedule()
 
+        is_any_authenticated = bool(profile and profile.is_authenticated)
+        if not is_any_authenticated and self.account_manager:
+            is_any_authenticated = any(a.client._profile and a.client._profile.is_authenticated for a in self.account_manager.accounts.values())
+
         return web.json_response({
-            "authenticated": profile.is_authenticated,
+            "authenticated": is_any_authenticated,
             "account": {
-                "username": profile.username,
-                "balance_dl": profile.balance_dl,
-                "level": profile.level,
+                "username": profile.username if profile else "",
+                "balance_dl": profile.balance_dl if profile else 0,
+                "level": profile.level if profile else 1,
             },
             "metrics": self.metrics.summary(),
             "stats": stats,

@@ -66,7 +66,8 @@ async def test_numbered_cookies_env_auto_import(tmp_path, monkeypatch):
     monkeypatch.setenv("NAME1", "Ana Hesap (Tipisteme)")
     monkeypatch.setenv("NAME2", "Yan Hesap 1")
 
-    cfg = Config()
+    monkeypatch.delenv("GAMBLIT_COOKIES", raising=False)
+    cfg = Config(raw_cookies="")
     mgr = AccountManager(config=cfg, data_path=json_file)
 
     assert len(mgr.accounts) == 3

@@ -93,7 +93,6 @@ class DiscordGatewayListener:
                 log.info(f"Connecting to Discord Gateway ({self.gateway_url})...")
                 async with websockets.connect(
                     self.gateway_url,
-                    extra_headers=headers,
                     open_timeout=10,
                     ping_interval=None,
                     close_timeout=1.0,
