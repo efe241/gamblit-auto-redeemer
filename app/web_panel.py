@@ -22,7 +22,7 @@ from app.queue import RedeemQueue
 from app.captcha_pool import CaptchaPool
 from app.models import ParsedCode, RedeemLatency, RedeemStatus, RedeemResult
 from app.parser import CodeParser
-from app.logging_config import get_recent_logs
+from app.logging_config import get_recent_logs, get_all_logs
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 
@@ -329,6 +329,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <a href="/test" style="color: #c084fc; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3);">🧪 Test Et (/test)</a>
             <a href="/durum" style="color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);">📊 Canlı Durum (/durum)</a>
+            <a href="/logs" style="color: #34d399; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);">📜 Tüm Loglar (/logs)</a>
             <span id="dc-badge" class="badge badge-purple">Discord: Bekleniyor</span>
             <span id="solver-badge" class="badge badge-purple">Çözücü: Manuel Mod</span>
             <span id="ws-badge" class="badge badge-offline">WebSocket: Bağlanıyor...</span>
@@ -1726,6 +1727,290 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
     </script>
 </body>
 </html>
+\"\"\"
+
+LOGS_HTML_TEMPLATE = \"\"\"<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamblit Auto-Redeemer Pro - Canlı Konsol & Loglar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --card-bg: rgba(16, 22, 34, 0.85);
+            --border: #1a2332;
+            --accent: #38bdf8;
+            --green: #10b981;
+            --red: #f43f5e;
+            --yellow: #f59e0b;
+            --purple: #a855f7;
+            --text-dim: #64748b;
+            --text-bright: #f8fafc;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text-bright);
+            padding: 24px 20px;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo {
+            font-size: 26px;
+            background: rgba(56, 189, 248, 0.1);
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .nav-btn {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 8px 14px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+        }
+        .nav-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .search-box {
+            background: #0d131f;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            width: 320px;
+            max-width: 100%;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .btn {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #0369a1; }
+        .btn-green { background: #10b981; }
+        .btn-green:hover { background: #059669; }
+        .log-container {
+            background: #04060a;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            height: calc(100vh - 220px);
+            min-height: 500px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            line-height: 1.6;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+        .log-line {
+            padding: 3px 6px;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            display: flex;
+            gap: 8px;
+        }
+        .log-line:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .log-info { color: #94a3b8; }
+        .log-success { color: #34d399; font-weight: 600; }
+        .log-warning { color: #fbbf24; }
+        .log-error { color: #f87171; font-weight: 600; }
+        .badge-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-title">
+            <div class="logo">📜</div>
+            <div>
+                <h1 style="font-size: 20px; font-weight: 800;">Gamblit Auto-Redeemer Pro — Tüm Loglar & Canlı Konsol</h1>
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Tüm drop yakalamaları, WebSocket paketleri ve hCaptcha çözümleri</div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <span class="badge-live"><span class="dot"></span> CANLI YAYIN</span>
+            <a href="/" class="nav-btn">⚡ Ana Panel</a>
+            <a href="/durum" class="nav-btn">📊 Durum</a>
+            <a href="/test" class="nav-btn">🧪 Test Et</a>
+        </div>
+    </header>
+
+    <div class="controls">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="filter-input" class="search-box" placeholder="🔍 Loglarda ara (kod, seviye, hata)..." oninput="filterLogs()">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #94a3b8; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="autoscroll-chk" checked> Otomatik Aşağı Kaydır
+            </label>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <span id="log-count" style="font-size: 12px; color: #64748b; font-family: 'JetBrains Mono', monospace;">0 Satır</span>
+            <button class="btn" onclick="fetchLogs(true)">🔄 Yenile</button>
+            <button class="btn btn-green" onclick="downloadLogs()">💾 Logları İndir (.txt)</button>
+        </div>
+    </div>
+
+    <div id="log-box" class="log-container">
+        <div style="color: #64748b; text-align: center; padding: 40px;">Loglar yükleniyor...</div>
+    </div>
+
+    <script>
+        let rawLogs = [];
+        let isFetching = false;
+
+        function renderLogs(logs) {
+            const container = document.getElementById('log-box');
+            const search = document.getElementById('filter-input').value.toLowerCase();
+            const autoscroll = document.getElementById('autoscroll-chk').checked;
+
+            let filtered = logs;
+            if (search) {
+                filtered = logs.filter(l => l.toLowerCase().includes(search));
+            }
+
+            document.getElementById('log-count').innerText = `${filtered.length} / ${logs.length} Satır`;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="color: #64748b; text-align: center; padding: 40px;">Eşleşen log bulunamadı.</div>';
+                return;
+            }
+
+            let html = '';
+            for (const line of filtered) {
+                let cls = 'log-info';
+                if (line.includes('SUCCESS') || line.includes('BAŞARIYLA') || line.includes('🎉') || line.includes('Claimed')) {
+                    cls = 'log-success';
+                } else if (line.includes('WARNING') || line.includes('RATE_LIMIT') || line.includes('RATE_LIMITED') || line.includes('INVALID_CAPTCHA') || line.includes('⚠️')) {
+                    cls = 'log-warning';
+                } else if (line.includes('ERROR') || line.includes('CRITICAL') || line.includes('failed') || line.includes('❌')) {
+                    cls = 'log-error';
+                }
+                html += `<div class="log-line ${cls}">${escapeHtml(line)}</div>`;
+            }
+            container.innerHTML = html;
+
+            if (autoscroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function filterLogs() {
+            renderLogs(rawLogs);
+        }
+
+        async function fetchLogs(manual = false) {
+            if (isFetching && !manual) return;
+            isFetching = true;
+            try {
+                const res = await fetch('/api/logs?limit=2000');
+                if (res.ok) {
+                    const data = await res.json();
+                    rawLogs = data.logs || [];
+                    renderLogs(rawLogs);
+                }
+            } catch(e) {
+                console.error('Log çekme hatası:', e);
+            } finally {
+                isFetching = false;
+            }
+        }
+
+        function downloadLogs() {
+            const blob = new Blob([rawLogs.join('\\n')], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gamblit_logs_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        fetchLogs(true);
+        setInterval(() => fetchLogs(false), 3000);
+    </script>
+</body>
+</html>
 """
 
 
@@ -1799,6 +2084,16 @@ class WebPanel:
         self.app.router.add_post("/api/accounts/{id}/toggle", self.handle_toggle_account)
         self.app.router.add_post("/api/accounts/{id}/test", self.handle_test_account)
         self.app.router.add_post("/api/codes/clear", self.handle_clear_codes)
+        self.app.router.add_get("/logs", self.handle_logs_page)
+        self.app.router.add_get("/api/logs", self.handle_logs_api)
+
+    async def handle_logs_page(self, request: web.Request) -> web.Response:
+        return web.Response(text=LOGS_HTML_TEMPLATE, content_type="text/html")
+
+    async def handle_logs_api(self, request: web.Request) -> web.Response:
+        limit = int(request.query.get("limit", 2000))
+        lines = get_all_logs(log_file=self.config.log_file, max_lines=limit)
+        return web.json_response({"logs": lines, "count": len(lines)})
 
     async def handle_import_auth(self, request: web.Request) -> web.Response:
         """1-Click import cookies directly from browser bookmarklet or console snippet."""

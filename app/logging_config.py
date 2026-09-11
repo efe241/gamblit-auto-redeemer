@@ -65,6 +65,22 @@ def get_recent_logs(limit: int = 50):
     return logs[-limit:]
 
 
+def get_all_logs(log_file: str = "logs/app.log", max_lines: int = 2000) -> list:
+    """Reads logs from both disk file and in-memory buffer."""
+    lines = []
+    p = Path(log_file)
+    if p.exists():
+        try:
+            with open(p, "r", encoding="utf-8", errors="replace") as f:
+                raw_lines = f.readlines()
+                lines = [line.rstrip() for line in raw_lines[-max_lines:]]
+        except Exception:
+            pass
+    if not lines and _RECENT_LOGS:
+        lines = [f"[{entry['time']}] [{entry['level']}] [{entry['name']}] {entry['message']}" for entry in _RECENT_LOGS]
+    return lines
+
+
 def setup_logger(
     name: str = "gamblit_redeemer",
     log_level: str = "INFO",
