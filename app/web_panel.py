@@ -365,7 +365,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <button class="btn-alt" type="button" style="padding: 3px 8px; font-size: 11px;" onclick="refreshData()" title="Bakiyeleri Güncelle">🔄 Yenile</button>
             </div>
             <div style="font-size: 14px; margin-top: 4px;">
-                NoneCap Kalan: <strong id="bal-nonecap" style="color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 15px;">1300 Kredi</strong>
+                NoneCap (Ana): <strong id="bal-nonecap" style="color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 14px;">1300 Kredi</strong>
+            </div>
+            <div style="font-size: 13px; margin-top: 4px;">
+                NoneCap (Yedek): <strong id="bal-nonecap-backup" style="color: #a78bfa; font-family: 'JetBrains Mono', monospace; font-size: 13px;">--</strong>
             </div>
             <div style="font-size: 12px; color: #8b949e; margin-top: 4px;">
                 CapSolver: <strong id="bal-capsolver" style="color: #7ee787;">--</strong>
@@ -553,15 +556,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             <div class="grid" style="margin-bottom: 0;">
                 <div class="form-group">
-                    <label>NONECAP API KEY (1300 Bedava Kredi - Aktif)</label>
+                    <label>NONECAP API KEY (Ana Çözücü)</label>
                     <input type="password" id="cfg-nonecap" placeholder="nc_live_...">
                 </div>
+                <div class="form-group">
+                    <label>NONECAP YEDEK KEY (Ana Bitince Devreye Girer)</label>
+                    <input type="password" id="cfg-nonecap-backup" placeholder="nc_live_...">
+                </div>
+            </div>
+            <div class="grid" style="margin-bottom: 0;">
                 <div class="form-group">
                     <label>CAPSOLVER API KEY (Yedek Çözücü)</label>
                     <input type="password" id="cfg-capsolver" placeholder="CapSolver API anahtarın">
                 </div>
-            </div>
-            <div class="grid" style="margin-bottom: 0;">
                 <div class="form-group">
                     <label>ÇALIŞMA SAATİ BAŞLANGIÇ (Örn: 20:25)</label>
                     <input type="text" id="cfg-sched-start" placeholder="20:25">
@@ -648,6 +655,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 const bal = data.captcha.balances || {};
                 document.getElementById('bal-nonecap').innerText = bal.nonecap || 'Bağlı Değil';
+                const balBakElem = document.getElementById('bal-nonecap-backup');
+                if (balBakElem) {
+                    balBakElem.innerText = bal.nonecap_backup || 'Yedek Tanımsız';
+                }
                 document.getElementById('bal-capsolver').innerText = bal.capsolver !== null ? '$' + bal.capsolver : 'Bağlı Değil';
 
 
@@ -781,6 +792,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('cfg-channel').value = data.discord_channel_id || '';
                 document.getElementById('cfg-guild').value = data.discord_guild_id || '';
                 document.getElementById('cfg-nonecap').value = data.nonecap_api_key || '';
+                const cfgBak = document.getElementById('cfg-nonecap-backup');
+                if (cfgBak) cfgBak.value = data.nonecap_backup_api_key || '';
                 document.getElementById('cfg-capsolver').value = data.capsolver_api_key || '';
                 document.getElementById('cfg-sched-start').value = data.schedule_start || '20:25';
                 document.getElementById('cfg-sched-end').value = data.schedule_end || '21:00';
@@ -796,6 +809,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 discord_channel_id: document.getElementById('cfg-channel').value,
                 discord_guild_id: document.getElementById('cfg-guild').value,
                 nonecap_api_key: document.getElementById('cfg-nonecap').value,
+                nonecap_backup_api_key: document.getElementById('cfg-nonecap-backup') ? document.getElementById('cfg-nonecap-backup').value : '',
                 capsolver_api_key: document.getElementById('cfg-capsolver').value,
                 schedule_enabled: true,
                 schedule_start: document.getElementById('cfg-sched-start').value.trim() || '20:25',
@@ -2142,7 +2156,12 @@ class WebPanel:
 
         active_solver = "Manuel Mod"
         if self.captcha_pool.nonecap_api_key:
-            active_solver = "NoneCap (1300 Bedava Kredi)"
+            if self.captcha_pool.nonecap_backup_api_key:
+                active_solver = "NoneCap (Ana + Yedek Korumalı)"
+            else:
+                active_solver = "NoneCap (1300 Bedava Kredi)"
+        elif self.captcha_pool.nonecap_backup_api_key:
+            active_solver = "NoneCap Yedek (Aktif)"
         elif self.captcha_pool.capsolver_api_key:
             active_solver = "CapSolver (Otomatik)"
         elif self.captcha_pool.twocaptcha_api_key:
@@ -2197,6 +2216,7 @@ class WebPanel:
             "discord_channel_id": str(self.config.discord_channel_id),
             "discord_guild_id": str(self.config.discord_guild_id),
             "nonecap_api_key": self.config.nonecap_api_key,
+            "nonecap_backup_api_key": self.config.nonecap_backup_api_key,
             "capsolver_api_key": self.config.capsolver_api_key,
             "raw_cookies": self.config.raw_cookies,
             "schedule_enabled": self.config.schedule_enabled,
@@ -2210,6 +2230,7 @@ class WebPanel:
         channel_id = data.get("discord_channel_id", "0").strip()
         guild_id = data.get("discord_guild_id", "0").strip()
         nonecap_key = data.get("nonecap_api_key", "").strip()
+        nonecap_backup_key = data.get("nonecap_backup_api_key", "").strip()
         capsolver_key = data.get("capsolver_api_key", "").strip()
         raw_cookies = data.get("raw_cookies")
         if raw_cookies is not None:
@@ -2226,6 +2247,7 @@ class WebPanel:
         self.config.discord_channel_id = int(channel_id or 0)
         self.config.discord_guild_id = int(guild_id or 0)
         self.config.nonecap_api_key = nonecap_key
+        self.config.nonecap_backup_api_key = nonecap_backup_key
         self.config.capsolver_api_key = capsolver_key
         self.config.schedule_enabled = sched_enabled
         self.config.schedule_start = sched_start
@@ -2233,6 +2255,7 @@ class WebPanel:
 
         # Update captcha pool keys
         self.captcha_pool.nonecap_api_key = nonecap_key
+        self.captcha_pool.nonecap_backup_api_key = nonecap_backup_key
         self.captcha_pool.capsolver_api_key = capsolver_key
 
         # Save to .env
@@ -2246,6 +2269,7 @@ GAMBLIT_COOKIES={raw_cookies}
 GAMBLIT_USER_AGENT={self.config.gamblit_user_agent}
 
 NONECAP_API_KEY={nonecap_key}
+NONECAP_BACKUP_API_KEY={nonecap_backup_key}
 CAPSOLVER_API_KEY={capsolver_key}
 
 SCHEDULE_ENABLED={"true" if sched_enabled else "false"}

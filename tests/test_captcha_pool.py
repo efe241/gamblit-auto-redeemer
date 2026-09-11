@@ -35,6 +35,7 @@ async def test_auto_solve_capsolver_priority():
     cfg = Config()
     pool = CaptchaPool(config=cfg)
     pool.nonecap_api_key = ''
+    pool.nonecap_backup_api_key = ''
     pool.capsolver_api_key = 'CS_KEY'
     pool.twocaptcha_api_key = '2C_KEY'
     with patch.object(pool, 'solve_capsolver', new_callable=AsyncMock) as mock_cs, patch.object(pool, 'solve_2captcha', new_callable=AsyncMock) as mock_2c:
@@ -50,6 +51,7 @@ async def test_auto_solve_fallback_to_twocaptcha():
     cfg = Config()
     pool = CaptchaPool(config=cfg)
     pool.nonecap_api_key = ''
+    pool.nonecap_backup_api_key = ''
     pool.capsolver_api_key = 'CS_KEY'
     pool.twocaptcha_api_key = '2C_KEY'
     with patch.object(pool, 'solve_capsolver', new_callable=AsyncMock) as mock_cs, patch.object(pool, 'solve_2captcha', new_callable=AsyncMock) as mock_2c:
@@ -59,3 +61,18 @@ async def test_auto_solve_fallback_to_twocaptcha():
         assert token == '2C_TOKEN'
         mock_cs.assert_called_once()
         mock_2c.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_auto_solve_nonecap_backup_fallback():
+    cfg = Config()
+    pool = CaptchaPool(config=cfg)
+    pool.nonecap_api_key = 'PRIMARY_KEY'
+    pool.nonecap_backup_api_key = 'BACKUP_KEY'
+    with patch.object(pool, 'solve_nonecap', new_callable=AsyncMock) as mock_nc:
+        # First call fails (primary key), second call succeeds (backup key)
+        mock_nc.side_effect = [None, 'BACKUP_TOKEN']
+        token = await pool.auto_solve_once()
+        assert token == 'BACKUP_TOKEN'
+        assert mock_nc.call_count == 2
+        mock_nc.assert_any_call(api_key='PRIMARY_KEY')
+        mock_nc.assert_any_call(api_key='BACKUP_KEY')

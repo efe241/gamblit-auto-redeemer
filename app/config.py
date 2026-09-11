@@ -59,6 +59,7 @@ class Config:
 
     # Captcha Solvers (NoneCap / CapSolver / 2Captcha)
     nonecap_api_key: str = field(default_factory=lambda: os.getenv("NONECAP_API_KEY", ""))
+    nonecap_backup_api_key: str = field(default_factory=lambda: os.getenv("NONECAP_BACKUP_API_KEY", ""))
     capsolver_api_key: str = field(default_factory=lambda: os.getenv("CAPSOLVER_API_KEY", ""))
     twocaptcha_api_key: str = field(default_factory=lambda: os.getenv("TWOCAPTCHA_API_KEY", ""))
 

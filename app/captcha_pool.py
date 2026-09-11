@@ -26,6 +26,7 @@ class CaptchaPool:
         self.page_url = config.gamblit_base_url or "https://gamblit.co"
         self.token_ttl_seconds: float = 110.0  # hCaptcha tokens valid ~120s, safe maximum 110s
         self.nonecap_api_key: str = config.nonecap_api_key or ""
+        self.nonecap_backup_api_key: str = config.nonecap_backup_api_key or ""
         self.capsolver_api_key: str = config.capsolver_api_key or ""
         self.twocaptcha_api_key: str = config.twocaptcha_api_key or ""
         self._bg_task: Optional[asyncio.Task] = None
@@ -152,11 +153,21 @@ class CaptchaPool:
 
     async def get_balances(self) -> Dict[str, Any]:
         """Queries current balance for configured solvers."""
-        balances = {"nonecap": None, "capsolver": None, "twocaptcha": None, "nonecap_solves": 0, "nonecap_remaining": 1300}
+        balances = {
+            "nonecap": None,
+            "nonecap_backup": None,
+            "capsolver": None,
+            "twocaptcha": None,
+            "nonecap_solves": 0,
+            "nonecap_remaining": 1300,
+            "nonecap_backup_remaining": 1300,
+        }
 
-        if self.nonecap_api_key:
+        async def fetch_nonecap_info(key: str):
+            if not key:
+                return None
             try:
-                headers = {"Authorization": f"Bearer {self.nonecap_api_key}"}
+                headers = {"Authorization": f"Bearer {key}"}
                 async with aiohttp.ClientSession(headers=headers) as s:
                     async with s.get("https://api.nonecap.com/v1/solves", timeout=aiohttp.ClientTimeout(total=4)) as resp:
                         if resp.status == 200:
@@ -165,14 +176,33 @@ class CaptchaPool:
                             solved_count = sum(1 for item in solves_list if item.get("status") == "solved")
                             charged_total = sum(int(item.get("credits_charged") or 0) for item in solves_list)
                             rem_credits = max(0, 1300 - charged_total)
-                            balances["nonecap_solves"] = solved_count
-                            balances["nonecap_charged"] = charged_total
-                            balances["nonecap_remaining"] = rem_credits
-                            balances["nonecap"] = f"{rem_credits:,} Kredi ({solved_count} Çözüm - {charged_total} Kredi Harcandı)".replace(",", ".")
-                        else:
-                            balances["nonecap"] = "1.234 Kredi"
+                            return {
+                                "solves": solved_count,
+                                "charged": charged_total,
+                                "remaining": rem_credits,
+                                "text": f"{rem_credits:,} Kredi ({solved_count} Çözüm - {charged_total} Kredi Harcandı)".replace(",", "."),
+                            }
             except Exception:
+                pass
+            return None
+
+        if self.nonecap_api_key:
+            res_main = await fetch_nonecap_info(self.nonecap_api_key)
+            if res_main:
+                balances["nonecap_solves"] = res_main["solves"]
+                balances["nonecap_charged"] = res_main["charged"]
+                balances["nonecap_remaining"] = res_main["remaining"]
+                balances["nonecap"] = res_main["text"]
+            else:
                 balances["nonecap"] = "1.234 Kredi"
+
+        if self.nonecap_backup_api_key:
+            res_bak = await fetch_nonecap_info(self.nonecap_backup_api_key)
+            if res_bak:
+                balances["nonecap_backup_remaining"] = res_bak["remaining"]
+                balances["nonecap_backup"] = res_bak["text"]
+            else:
+                balances["nonecap_backup"] = "1.300 Kredi"
 
 
         if self.capsolver_api_key:
@@ -368,19 +398,35 @@ class CaptchaPool:
         return None
 
     async def auto_solve_once(self) -> Optional[str]:
-        """Tries NoneCap (free credits) first, then CapSolver, then 2Captcha."""
+        """Tries primary NoneCap first; if depleted/fails, automatically falls over to backup NoneCap, then CapSolver, then 2Captcha."""
+        # 1. Primary NoneCap key
         if self.nonecap_api_key:
-            token = await self.solve_nonecap()
+            token = await self.solve_nonecap(api_key=self.nonecap_api_key)
             if token:
                 return token
+            log.warning("⚠️ Birincil NoneCap anahtarı başarısız/tükendi, yedek çözücüye geçiliyor...")
+
+        # 2. Backup NoneCap key (Devreye giren yedek NoneCap)
+        if self.nonecap_backup_api_key:
+            log.info("🛡️ [Yedek Çözücü Aktif] Yedek NoneCap API anahtarı kullanılıyor...")
+            token = await self.solve_nonecap(api_key=self.nonecap_backup_api_key)
+            if token:
+                log.info("✅ Yedek NoneCap anahtarı başarıyla çözdü!")
+                return token
+            log.warning("⚠️ Yedek NoneCap anahtarı da başarısız oldu, CapSolver/2Captcha deneniyor...")
+
+        # 3. CapSolver fallback
         if self.capsolver_api_key:
             token = await self.solve_capsolver()
             if token:
                 return token
+
+        # 4. 2Captcha fallback
         if self.twocaptcha_api_key:
             token = await self.solve_2captcha()
             if token:
                 return token
+
         return None
 
     async def start_auto_solver_loop(self):
@@ -409,7 +455,7 @@ class CaptchaPool:
                     await asyncio.sleep(10)
                     continue
 
-                has_provider = bool(self.nonecap_api_key or self.capsolver_api_key or self.twocaptcha_api_key)
+                has_provider = bool(self.nonecap_api_key or self.nonecap_backup_api_key or self.capsolver_api_key or self.twocaptcha_api_key)
                 if has_provider and not self.is_solving:
                     now = time.time()
                     async with self._lock:
