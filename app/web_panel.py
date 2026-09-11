@@ -1579,6 +1579,18 @@ SONUC_HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
 
+        <!-- Custom Code Test Bar -->
+        <div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px 18px; margin-bottom: 24px;">
+            <form action="/test" method="GET" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">🎯 İstediğin Gerçek Kodu Gir:</span>
+                <input type="text" name="code" id="custom-test-code" placeholder="Örn: Gerçek bir drop kodu..." style="flex: 1; min-width: 200px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 9px 14px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; outline: none;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; user-select: none;">
+                    <input type="checkbox" name="solve" value="1" style="accent-color: #10b981;"> Token Çöz (11 Kredi)
+                </label>
+                <button type="submit" style="background: linear-gradient(135deg, #0284c7 0%, #6366f1 100%); color: white; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);">🚀 Bu Kodla Test Et</button>
+            </form>
+        </div>
+
         <div class="section-title">
             📋 Hesap Bazlı Sunucu Yanıtları
         </div>
@@ -1921,6 +1933,11 @@ class WebPanel:
         })
 
     async def _get_test_code(self) -> str:
+        # 0. Check TEST_CODE env var
+        env_code = os.getenv("TEST_CODE") or os.getenv("TEST_PROMO_CODE")
+        if env_code and env_code.strip():
+            return env_code.strip()
+
         # 1. Check DB for the most recent code
         try:
             async with self.db._connection.cursor() as cursor:
@@ -1935,13 +1952,15 @@ class WebPanel:
         if self.config.discord_token and self.config.discord_channel_id:
             try:
                 import aiohttp
+                token = self.config.discord_token
+                auth_header = f"Bot {token}" if not token.startswith("Bot ") and "." in token and len(token) > 50 and not token.startswith("mfa.") else token
                 headers = {
-                    "Authorization": self.config.discord_token,
-                    "User-Agent": "Mozilla/5.0",
+                    "Authorization": auth_header,
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 }
-                url = f"https://discord.com/api/v10/channels/{self.config.discord_channel_id}/messages?limit=20"
+                url = f"https://discord.com/api/v10/channels/{self.config.discord_channel_id}/messages?limit=25"
                 async with aiohttp.ClientSession(headers=headers) as session:
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=3.0)) as resp:
+                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=4.0)) as resp:
                         if resp.status == 200:
                             msgs = await resp.json()
                             from app.parser import extract_level_codes, extract_code_from_text
