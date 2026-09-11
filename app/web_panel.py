@@ -1753,6 +1753,8 @@ class WebPanel:
 
     def _setup_routes(self):
         self.app.router.add_get("/", self.handle_index)
+        self.app.router.add_get("/health", self.handle_health)
+        self.app.router.add_get("/ping", self.handle_health)
         self.app.router.add_get("/durum", self.handle_durum)
         self.app.router.add_get("/api/durum", self.handle_durum_api)
         self.app.router.add_get("/test", self.handle_test_redeem)
@@ -1911,6 +1913,14 @@ class WebPanel:
 
     async def handle_cors_preflight(self, request: web.Request) -> web.Response:
         return web.Response(status=200)
+
+    async def handle_health(self, request: web.Request) -> web.Response:
+        return web.json_response({
+            "status": "ok",
+            "uptime": "active",
+            "time_tr": self.config.get_tr_now().strftime("%H:%M:%S"),
+            "ws_connected": self.client._connected,
+        })
 
     async def handle_index(self, request: web.Request) -> web.Response:
         return web.Response(text=HTML_TEMPLATE, content_type="text/html")
