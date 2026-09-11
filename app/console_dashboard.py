@@ -69,7 +69,7 @@ class ConsoleDashboard:
             try:
                 profile = await self.client.get_profile()
                 stats = await self.db.get_stats()
-                now_str = datetime.now().strftime("%H:%M:%S")
+                now_str = self.config.get_tr_now().strftime("%H:%M:%S")
 
                 # WebSocket & Account Status
                 if self.account_manager and len(self.account_manager.accounts) > 1:

@@ -740,7 +740,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                             <td class="code-cell">${c.code}</td>
                             <td><span class="badge ${badgeCls}">${c.status}</span></td>
                             <td style="color: #8b949e; font-size: 12px;">${c.message || '--'}</td>
-                            <td>${new Date((c.processed_at||c.received_at)*1000).toLocaleTimeString()}</td>
+                            <td>${new Date((c.processed_at||c.received_at)*1000).toLocaleTimeString('tr-TR', {timeZone: 'Europe/Istanbul'})}</td>
                             <td>${(c.latency_ms||0).toFixed(1)} ms</td>
                         </tr>`;
                     }
@@ -2093,7 +2093,7 @@ class WebPanel:
         display_socket_latency_ms = round(best_socket_lat if best_socket_lat is not None else socket_lat_ms, 2)
 
         test_data = {
-            "tested_at": time.strftime("%H:%M:%S"),
+            "tested_at": self.config.get_tr_now().strftime("%H:%M:%S"),
             "code": test_code,
             "server_latency_ms": display_socket_latency_ms,
             "total_latency_ms": display_socket_latency_ms,

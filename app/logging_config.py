@@ -30,7 +30,16 @@ class SensitiveDataFilter(logging.Filter):
 
 
 import collections
+import datetime
 import time
+
+_TR_TZ = datetime.timezone(datetime.timedelta(hours=3))
+
+def _tr_time_converter(secs=None):
+    """Converts epoch seconds to Turkey Time (UTC+3) timetuple."""
+    if secs is None:
+        secs = time.time()
+    return datetime.datetime.fromtimestamp(secs, _TR_TZ).timetuple()
 
 _RECENT_LOGS = collections.deque(maxlen=200)
 
@@ -39,8 +48,9 @@ class RingBufferLogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
         try:
             msg = self.format(record)
+            tr_dt = datetime.datetime.fromtimestamp(record.created, _TR_TZ)
             _RECENT_LOGS.append({
-                "time": time.strftime("%H:%M:%S", time.localtime(record.created)),
+                "time": tr_dt.strftime("%H:%M:%S"),
                 "level": record.levelname,
                 "name": record.name,
                 "message": msg,
@@ -77,6 +87,7 @@ def setup_logger(
         fmt="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    formatter.converter = _tr_time_converter
 
     sensitive_filter = SensitiveDataFilter()
 
