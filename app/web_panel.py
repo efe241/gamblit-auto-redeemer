@@ -20,7 +20,7 @@ from app.gamblit_client import GamblitClient
 from app.metrics import MetricsTracker
 from app.queue import RedeemQueue
 from app.captcha_pool import CaptchaPool
-from app.models import ParsedCode, RedeemLatency
+from app.models import ParsedCode, RedeemLatency, RedeemStatus, RedeemResult
 from app.parser import CodeParser
 from app.logging_config import get_recent_logs
 
