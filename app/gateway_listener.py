@@ -93,10 +93,24 @@ class DiscordGatewayListener:
                 log.info(f"Connecting to Discord Gateway ({self.gateway_url})...")
                 async with websockets.connect(
                     self.gateway_url,
-                    additional_headers=headers,
+                    extra_headers=headers,
                     open_timeout=10,
                     ping_interval=None,
+                    close_timeout=1.0,
+                    max_size=2**22,
                 ) as ws:
+                    try:
+                        transport = getattr(ws, "transport", None)
+                        if transport is None and hasattr(ws, "protocol"):
+                            transport = getattr(ws.protocol, "transport", None)
+                        if transport:
+                            sock = transport.get_extra_info("socket")
+                            if sock:
+                                import socket
+                                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                                sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    except Exception:
+                        pass
                     self._ws = ws
                     self.is_connected = True
                     await self._handle_messages(ws, token)

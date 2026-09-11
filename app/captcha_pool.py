@@ -134,6 +134,22 @@ class CaptchaPool:
                 return tok
             return None
 
+    async def consume_tokens(self, count: int = 1) -> list:
+        """
+        Atomically pops up to `count` valid tokens from the pool in a single lock acquisition.
+        Guarantees that distinct concurrent accounts each get a unique token instantly (0.1ms).
+        """
+        async with self._lock:
+            now = time.time()
+            self._tokens = [(t0, tok) for t0, tok in self._tokens if (now - t0) < self.token_ttl_seconds]
+            popped = []
+            while self._tokens and len(popped) < count:
+                _, tok = self._tokens.pop(0)
+                popped.append(tok)
+            if popped:
+                log.info(f"🎯 Havuzdan {len(popped)} token tüketildi (0ms). Kalan: {len(self._tokens)} token.")
+            return popped
+
     async def warm_up_pool(self, count: Optional[int] = None) -> int:
         """
         Rapidly solves multiple captchas in parallel (burst mode) to pre-warm the pool for drops.

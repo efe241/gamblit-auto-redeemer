@@ -48,6 +48,15 @@ class ManagedAccount:
         )
         self.client = GamblitClient(config=self.config)
 
+    async def verify(self) -> AccountProfile:
+        """Connects and fetches profile to verify credentials."""
+        if not self.client._connected:
+            await self.client.connect_ws()
+        profile = await self.client.get_profile()
+        if profile and profile.is_authenticated:
+            self.client._profile = profile
+        return profile
+
     def to_dict(self) -> Dict[str, Any]:
         profile = self.client._profile
         is_auth = profile.is_authenticated if profile else False
@@ -133,7 +142,7 @@ class AccountManager:
                 log.error(f"Error importing GAMBLIT_ACCOUNTS env: {e}")
 
         # Auto-import numbered cookie environment variables:
-        # COOKIE1..20, COOKIE_1..20, GAMBLIT_COOKIE1..20, GAMBLIT_COOKIES_1..20
+        # COOKIE1..20, COOKIE_1..20, GAMBLIT_COOKIE1..20, GAMBLIT_COOKIE_1..20, GAMBLIT_COOKIES_1..20
         for idx in range(1, 21):
             env_val = (
                 os.getenv(f"COOKIE{idx}")
@@ -203,6 +212,15 @@ class AccountManager:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def verify_all(self) -> Dict[str, Any]:
+        """Concurrently verifies and refreshes profiles of all enabled accounts."""
+        active = [acc for acc in self.accounts.values() if acc.enabled]
+        tasks = [acc.verify() for acc in active]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._save()
+        return self.get_summary()
+
     async def add_account(self, name: str, cookies: str) -> ManagedAccount:
         acc_id = f"acc_{uuid.uuid4().hex[:8]}"
         acc = ManagedAccount(
@@ -217,6 +235,16 @@ class AccountManager:
         asyncio.create_task(acc.client.connect_ws())
         log.info(f"Yeni hesap eklendi: '{acc.name}' (ID: {acc.id})")
         return acc
+
+    async def add_accounts_bulk(self, text: str) -> List[ManagedAccount]:
+        """Allows adding multiple accounts from a multi-line string or JSON array."""
+        lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+        added = []
+        for idx, line in enumerate(lines, start=len(self.accounts) + 1):
+            if line.startswith("{") or "=" in line:
+                acc = await self.add_account(name=f"Hesap {idx}", cookies=line)
+                added.append(acc)
+        return added
 
     async def remove_account(self, account_id: str) -> bool:
         if account_id in self.accounts:
@@ -267,12 +295,13 @@ class AccountManager:
             return []
 
         async def _redeem_one(acc: ManagedAccount) -> Dict[str, Any]:
-            lat = RedeemLatency(t0_discord_received=time.time())
+            lat = RedeemLatency(t0_discord_received=time.perf_counter())
             res = await acc.client.redeem_code(code, latency=lat, captcha_token=captcha_token)
             return {
                 "account_id": acc.id,
                 "account_name": acc.name,
                 "username": acc.client._profile.username if acc.client._profile else acc.name,
+                "level": acc.level,
                 "code": code,
                 "req_level": req_level,
                 "result": res,
@@ -316,7 +345,7 @@ class AccountManager:
 
             for req_lvl, code in eligible:
                 log.info(f"⚡ [{acc.name}] -> Kod Gönderiliyor: '{code}' (Gereken Level: {req_lvl}+ | Hesap: {acc.level})")
-                lat = RedeemLatency(t0_discord_received=time.time())
+                lat = RedeemLatency(t0_discord_received=time.perf_counter())
 
                 # If token is pre-warmed in pool, take it instantly (0.1ms) for zero-latency redeem!
                 token = ""
@@ -330,19 +359,24 @@ class AccountManager:
                     "CAPTCHA" in res.message.upper()
                     or (res.response_data and "CAPTCHA" in str(res.response_data).upper())
                 )
-                if is_captcha_err and captcha_pool and not token:
+                has_succeeded = any(
+                    item.get("result") and item.get("result").status == RedeemStatus.SUCCESS 
+                    for item in acc_results
+                )
+                if is_captcha_err and captcha_pool and not token and not has_succeeded:
                     log.warning(f"🛡️ [{acc.name}] Captcha engeli ({res.message}). Yedek token çözülüyor...")
                     fresh_tok = await captcha_pool.consume_token()
                     if not fresh_tok:
                         fresh_tok = await captcha_pool.auto_solve_once()
                     if fresh_tok:
-                        lat_retry = RedeemLatency(t0_discord_received=time.time())
+                        lat_retry = RedeemLatency(t0_discord_received=time.perf_counter())
                         res = await acc.client.redeem_code(code, latency=lat_retry, captcha_token=fresh_tok)
 
                 acc_results.append({
                     "account_id": acc.id,
                     "account_name": acc.name,
                     "username": acc.client._profile.username if acc.client._profile else acc.name,
+                    "level": acc.level,
                     "code": code,
                     "req_level": req_lvl,
                     "result": res,

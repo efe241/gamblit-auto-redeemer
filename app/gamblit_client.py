@@ -17,6 +17,10 @@ from app.models import RedeemResult, RedeemStatus, RedeemLatency, AccountProfile
 log = logging.getLogger("gamblit_redeemer.client")
 
 
+_PONG_PACKET = msgpack.packb({"ID": "Pong"}, use_bin_type=True)
+_GET_USER_DATA_PACKET = msgpack.packb({"ID": "GetUserData"}, use_bin_type=True)
+
+
 def xp_required_for_level(lvl: int) -> float:
     """Exact XP requirement calculation matching Gamblit frontend (Lm function)."""
     if lvl < 5:
@@ -128,8 +132,8 @@ class GamblitClient:
                 ("wss://ws.gamblit.co", "https://gamblit.co"),
                 ("wss://ws.gamblit.net", "https://gamblit.net"),
             ] if primary_co else [
-                ("wss://ws.gamblit.co", "https://gamblit.co"),
                 ("wss://ws.gamblit.net", "https://gamblit.net"),
+                ("wss://ws.gamblit.co", "https://gamblit.co"),
             ]
 
             for target_ws_uri, target_origin in ws_candidates:
@@ -143,10 +147,27 @@ class GamblitClient:
                     log.debug(f"Connecting to Gamblit WebSocket ({target_ws_uri})...")
                     self._ws = await websockets.connect(
                         target_ws_uri,
-                        additional_headers=headers,
+                        extra_headers=headers,
                         open_timeout=4.0,
                         ping_interval=None,
+                        compression=None,
+                        close_timeout=1.0,
+                        max_size=2**20,
                     )
+                    # Optimize TCP socket: disable Nagle's algorithm (TCP_NODELAY) for zero latency
+                    try:
+                        transport = getattr(self._ws, "transport", None)
+                        if transport is None and hasattr(self._ws, "protocol"):
+                            transport = getattr(self._ws.protocol, "transport", None)
+                        if transport:
+                            sock = transport.get_extra_info("socket")
+                            if sock:
+                                import socket
+                                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                                sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    except Exception:
+                        pass
+
                     self._connected = True
                     self._listen_task = asyncio.create_task(self._listen_loop())
                     self._ping_task = asyncio.create_task(self._ping_loop())
@@ -176,7 +197,7 @@ class GamblitClient:
     async def _ping_loop(self):
         while self._connected:
             try:
-                await asyncio.sleep(20)
+                await asyncio.sleep(15)
                 if self._ws and self._connected:
                     await self._ws.ping()
             except Exception:
@@ -198,10 +219,10 @@ class GamblitClient:
                     await self._ws.send(msgpack.packb({"ID": "PAT", "token": b64}))
 
                 elif packet_id == "PAT":
-                    await self._ws.send(msgpack.packb({"ID": "GetUserData"}))
+                    await self._ws.send(_GET_USER_DATA_PACKET)
 
                 elif packet_id == "Ping":
-                    await self._ws.send(msgpack.packb({"ID": "Pong"}))
+                    await self._ws.send(_PONG_PACKET)
 
                 elif packet_id == "UserData":
                     if packet.get("username") or packet.get("success"):
@@ -276,6 +297,7 @@ class GamblitClient:
         """
         Accurately measures pure Gamblit WebSocket RTT latency in milliseconds.
         Completely free of captchas, zero credits used.
+        Uses monotonic high-resolution timer (sub-microsecond precision).
         """
         if not self._connected or not self._ws:
             ws_ok = await self.connect_ws()
@@ -284,11 +306,11 @@ class GamblitClient:
 
         fut = asyncio.get_running_loop().create_future()
         self._pending_responses["UserData"] = fut
-        t0 = time.time()
+        t0 = time.perf_counter()
         try:
-            await self._ws.send(msgpack.packb({"ID": "GetUserData"}))
+            await self._ws.send(_GET_USER_DATA_PACKET)
             await asyncio.wait_for(fut, timeout=3.0)
-            latency_ms = (time.time() - t0) * 1000.0
+            latency_ms = (time.perf_counter() - t0) * 1000.0
             return round(latency_ms, 2)
         except Exception:
             self._pending_responses.pop("UserData", None)
@@ -334,18 +356,19 @@ class GamblitClient:
         fut = asyncio.get_running_loop().create_future()
         self._pending_responses["ClaimPromoCode"] = fut
 
-        claim_packet = {
+        # Pre-pack payload bytes before starting the request timer
+        claim_payload_bytes = msgpack.packb({
             "ID": "ClaimPromoCode",
             "code": code,
             "captcha": captcha_token or "",
             "currency": "wl",
-        }
+        }, use_bin_type=True)
 
-        latency.t2_request_started = time.time()
+        latency.t2_request_started = time.perf_counter()
         try:
-            await self._ws.send(msgpack.packb(claim_packet))
+            await self._ws.send(claim_payload_bytes)
             response = await asyncio.wait_for(fut, timeout=self.config.read_timeout_sec)
-            latency.t3_response_received = time.time()
+            latency.t3_response_received = time.perf_counter()
 
             success = response.get("success", False)
             err = str(response.get("error", "")).upper()

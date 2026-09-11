@@ -81,3 +81,51 @@ async def test_numbered_cookies_env_auto_import(tmp_path, monkeypatch):
     assert mgr.accounts["acc_3"].name == "Hesap 3"
 
     await mgr.close_all()
+
+
+@pytest.mark.asyncio
+async def test_bulk_add_and_verify_all(tmp_path):
+    from unittest.mock import AsyncMock
+    from app.models import AccountProfile
+    from app.captcha_pool import CaptchaPool
+
+    json_file = str(tmp_path / "accounts_bulk.json")
+    cfg = Config(raw_cookies="")
+    mgr = AccountManager(config=cfg, data_path=json_file)
+
+    bulk_text = """
+    sid=bulk_1; _vid_t=tok1
+    sid=bulk_2; _vid_t=tok2
+    {"sid": "bulk_3"}
+    """
+    added = await mgr.add_accounts_bulk(bulk_text)
+    assert len(added) == 3
+    assert len(mgr.accounts) == 3
+
+    # Mock verify on all accounts
+    for acc in mgr.accounts.values():
+        acc.client.connect_ws = AsyncMock(return_value=True)
+        acc.client._connected = True
+        acc.client.get_profile = AsyncMock(return_value=AccountProfile(
+            username=f"User_{acc.id}",
+            level=42,
+            balance_dl=1250,
+            is_authenticated=True,
+        ))
+
+    summary = await mgr.verify_all()
+    assert summary["total_accounts"] == 3
+    assert summary["connected_accounts"] == 3
+
+    # Test CaptchaPool multi-token consumption
+    pool = CaptchaPool(config=cfg, account_manager=mgr)
+    pool.set_token("token_1")
+    pool.set_token("token_2")
+    pool.set_token("token_3")
+
+    popped = await pool.consume_tokens(count=3)
+    assert len(popped) == 3
+    assert popped == ["token_1", "token_2", "token_3"]
+    assert pool.valid_token_count == 0
+
+    await mgr.close_all()

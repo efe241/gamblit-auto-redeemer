@@ -491,9 +491,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     <!-- Multi-Account Manager Card -->
     <div class="card" style="margin-bottom: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <h2>👥 Gamblit Çoklu Hesap Havuzu (Multi-Account)</h2>
-            <button class="btn-accent" type="button" style="padding: 6px 14px; font-size: 13px;" onclick="toggleAddAccountModal()">➕ Yeni Hesap Ekle</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-alt" type="button" style="padding: 6px 14px; font-size: 13px;" onclick="verifyAllAccounts()">🔄 Tümünü Doğrula & Tazele</button>
+                <button class="btn-accent" type="button" style="padding: 6px 14px; font-size: 13px;" onclick="toggleAddAccountModal()">➕ Yeni Hesap Ekle</button>
+            </div>
         </div>
         <p style="font-size: 13px; color: #8b949e; margin-top: -6px; margin-bottom: 16px;">
             Discord'dan yakalanan her promo kodu havuzdaki tüm aktif hesaplarda <strong>aynı anda (paralel)</strong> redeem edilir!
@@ -1009,6 +1012,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     showToast(data.message || '❌ Bağlantı kurulamadı!', true);
                 }
                 refreshData();
+            } catch(e) {
+                showToast('Hata: ' + e, true);
+            }
+        }
+
+        async function verifyAllAccounts() {
+            showToast('🔄 Tüm hesapların bağlantıları ve seviyeleri tazeleniyor...');
+            try {
+                const res = await fetch('/api/accounts/verify', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || '✅ Tüm hesaplar doğrulandı!');
+                    refreshData();
+                } else {
+                    showToast('Doğrulama hatası: ' + (data.error || 'Hata'), true);
+                }
             } catch(e) {
                 showToast('Hata: ' + e, true);
             }
@@ -1774,6 +1793,7 @@ class WebPanel:
         self.app.router.add_post("/api/captcha/warmup", self.handle_warmup)
         self.app.router.add_get("/api/accounts", self.handle_get_accounts)
         self.app.router.add_post("/api/accounts", self.handle_add_account)
+        self.app.router.add_post("/api/accounts/verify", self.handle_verify_all_accounts)
         self.app.router.add_delete("/api/accounts/{id}", self.handle_remove_account)
         self.app.router.add_post("/api/accounts/{id}/toggle", self.handle_toggle_account)
         self.app.router.add_post("/api/accounts/{id}/test", self.handle_test_account)
@@ -1895,21 +1915,35 @@ class WebPanel:
         if not acc:
             return web.json_response({"error": "Hesap bulunamadı"}, status=404)
         
-        # Test connection
-        if acc.client._connected:
-            await acc.client.close()
-        await acc.client.connect_ws()
-        profile = acc.client._profile
+        # Test connection and measure live pure latency
+        if not acc.client._connected:
+            await acc.client.connect_ws()
+        profile = await acc.client.get_profile()
+        latency_ms = await acc.client.measure_ws_latency()
         if profile and profile.is_authenticated:
+            lat_str = f" | Gecikme: {latency_ms:.1f}ms" if latency_ms > 0 else ""
             return web.json_response({
                 "status": "success",
-                "message": f"✅ Bağlantı BAŞARILI: {profile.username} (Level {profile.level}, {profile.balance_dl} DL)",
+                "message": f"✅ Bağlantı BAŞARILI: {profile.username} (Level {profile.level}, {profile.balance_dl} DL{lat_str})",
+                "latency_ms": latency_ms,
                 "account": acc.to_dict()
             })
         return web.json_response({
             "status": "failed",
             "message": "❌ Bağlantı kurulamadı. Çerezler geçersiz olabilir veya onay bekliyor.",
             "account": acc.to_dict()
+        })
+
+    async def handle_verify_all_accounts(self, request: web.Request) -> web.Response:
+        if not self.account_manager:
+            return web.json_response({"error": "Account manager not available"}, status=500)
+        summary = await self.account_manager.verify_all()
+        conn_cnt = summary.get("connected_accounts", 0)
+        tot_cnt = summary.get("total_accounts", 0)
+        return web.json_response({
+            "status": "ok",
+            "message": f"✅ {conn_cnt}/{tot_cnt} hesap doğrulandı ve bağlantıları tazelendi!",
+            "summary": summary
         })
 
     async def handle_cors_preflight(self, request: web.Request) -> web.Response:
@@ -2027,7 +2061,7 @@ class WebPanel:
                 captcha_solve_sec = round(time.time() - t_c0, 2)
 
         # Measure pure Gamblit WebSocket communication latency (RTT)
-        t_socket_start = time.time()
+        t_socket_start = time.perf_counter()
         if self.account_manager and self.account_manager.accounts:
             results = await self.account_manager.redeem_all(
                 code=test_code,
@@ -2046,7 +2080,7 @@ class WebPanel:
                 "result": res,
             }]
 
-        socket_lat_ms = (time.time() - t_socket_start) * 1000.0
+        socket_lat_ms = (time.perf_counter() - t_socket_start) * 1000.0
 
         formatted_accs = []
         best_socket_lat = None
