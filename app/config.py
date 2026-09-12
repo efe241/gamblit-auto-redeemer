@@ -79,13 +79,17 @@ class Config:
                 if k_clean and k_clean not in keys:
                     keys.append(k_clean)
 
-        # 2. Numbered keys NONECAP_API_KEY_1..50, NONECAP_KEY_1..50 (only if primary/backup are configured or present in env)
+        # 2. Numbered keys NONECAP_API_KEY_1..50, API_KEY_1..50, APIKEY_1..50, NONECAP_KEY_1..50
         for idx in range(1, 51):
             env_k = (
                 os.getenv(f"NONECAP_API_KEY_{idx}")
                 or os.getenv(f"NONECAP_KEY_{idx}")
                 or os.getenv(f"NONECAP_API_KEY{idx}")
                 or os.getenv(f"NONECAP_KEY{idx}")
+                or os.getenv(f"API_KEY_{idx}")
+                or os.getenv(f"API_KEY{idx}")
+                or os.getenv(f"APIKEY_{idx}")
+                or os.getenv(f"APIKEY{idx}")
             )
             if env_k and env_k.strip():
                 for sub_k in env_k.split(","):
