@@ -2261,14 +2261,14 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
                 }
                 const d = await res.json();
                 
-                document.getElementById('stat-tokens').innerText = `${d.valid_token_count} / ${d.target_pool_size} Token`;
-                document.getElementById('stat-credits').innerText = (d.total_remaining_credits || 0).toLocaleString('tr-TR') + ' Kredi';
-                document.getElementById('stat-keys').innerText = (d.total_keys_count || 0) + ' Adet';
+                document.getElementById('stat-tokens').innerText = `${d.valid_token_count || 0} / ${d.target_pool_size || 1} Token`;
+                document.getElementById('stat-credits').innerText = (Number(d.total_remaining_credits || 0)).toLocaleString('tr-TR') + ' Kredi';
+                document.getElementById('stat-keys').innerText = (Number(d.total_keys_count || 0)) + ' Adet';
                 
                 if (d.schedule) {
-                    const c = d.schedule.countdown;
+                    const c = d.schedule.countdown || {};
                     document.getElementById('stat-sched').innerText = c.is_active ? '🔥 AKTİF' : '⏳ Uykuda';
-                    document.getElementById('stat-sched-sub').innerText = `${d.schedule.start} - ${d.schedule.end} (${c.countdown_text})`;
+                    document.getElementById('stat-sched-sub').innerText = `${d.schedule.start || '20:30'} - ${d.schedule.end || '20:45'} (${c.countdown_text || ''})`;
                 }
 
                 // Render ready tokens
@@ -2282,11 +2282,11 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
                             <div class="token-item">
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span style="font-weight: 700; color: #38bdf8;">Token #${i+1}</span>
-                                    <span class="token-code">${t.preview}</span>
+                                    <span class="token-code">${t.preview || ''}</span>
                                 </div>
                                 <div style="display: flex; gap: 12px; align-items: center; font-size: 12.5px;">
-                                    <span style="color: #94a3b8;">Yaş: <strong>${t.age_sec} sn</strong></span>
-                                    <span style="color: #34d399; font-weight: 700;">Kalan Süre: ${t.remaining_ttl_sec} sn</span>
+                                    <span style="color: #94a3b8;">Yaş: <strong>${t.age_sec || 0} sn</strong></span>
+                                    <span style="color: #34d399; font-weight: 700;">Kalan Süre: ${t.remaining_ttl_sec || 0} sn</span>
                                     <span class="badge ${t.is_fresh ? 'badge-success' : 'badge-warning'}">${t.is_fresh ? 'TAZE' : 'GEÇERLİ'}</span>
                                 </div>
                             </div>
@@ -2302,15 +2302,16 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
                 } else {
                     let kHtml = '';
                     d.keys.forEach(k => {
+                        const remStr = (Number(k.remaining_credits || 0)).toLocaleString('tr-TR');
                         kHtml += `
                             <tr>
-                                <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700;">#${k.index}</td>
-                                <td><strong>${k.name}</strong></td>
-                                <td><code style="font-family: 'JetBrains Mono', monospace; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${k.key_preview}</code></td>
-                                <td style="font-family: 'JetBrains Mono', monospace;">${k.solves} Çözüm</td>
-                                <td style="font-family: 'JetBrains Mono', monospace; color: #f87171;">-${k.charged_credits} Kredi</td>
-                                <td style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #34d399;">${k.remaining_credits.toLocaleString('tr-TR')} Kredi</td>
-                                <td><span class="badge badge-${k.badge}">${k.status}</span></td>
+                                <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700;">#${k.index || 1}</td>
+                                <td><strong>${k.name || ''}</strong></td>
+                                <td><code style="font-family: 'JetBrains Mono', monospace; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${k.key_preview || ''}</code></td>
+                                <td style="font-family: 'JetBrains Mono', monospace;">${k.solves || 0} Çözüm</td>
+                                <td style="font-family: 'JetBrains Mono', monospace; color: #f87171;">-${k.charged_credits || 0} Kredi</td>
+                                <td style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #34d399;">${remStr} Kredi</td>
+                                <td><span class="badge badge-${k.badge || 'info'}">${k.status || 'AKTİF'}</span></td>
                             </tr>
                         `;
                     });
@@ -2453,7 +2454,75 @@ class WebPanel:
         self.app.router.add_post("/api/captcha/test-all", self.handle_test_all_keys)
 
     async def handle_captcha_page(self, request: web.Request) -> web.Response:
-        return web.Response(text=CAPTCHA_HTML_TEMPLATE, content_type="text/html")
+        try:
+            status_data = await self.captcha_pool.get_detailed_status()
+            keys = status_data.get("keys", [])
+            tokens = status_data.get("ready_tokens", [])
+
+            if not keys:
+                keys_html = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 20px;">Tanımlı NoneCap API anahtarı bulunamadı.</td></tr>'
+            else:
+                rows = []
+                for k in keys:
+                    rem = f"{k.get('remaining_credits', 0):,}".replace(",", ".")
+                    rows.append(f"""
+                        <tr>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700;">#{k.get('index', 1)}</td>
+                            <td><strong>{k.get('name', '')}</strong></td>
+                            <td><code style="font-family: 'JetBrains Mono', monospace; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">{k.get('key_preview', '')}</code></td>
+                            <td style="font-family: 'JetBrains Mono', monospace;">{k.get('solves', 0)} Çözüm</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; color: #f87171;">-{k.get('charged_credits', 0)} Kredi</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #34d399;">{rem} Kredi</td>
+                            <td><span class="badge badge-{k.get('badge', 'info')}">{k.get('status', 'AKTİF')}</span></td>
+                        </tr>
+                    """)
+                keys_html = "".join(rows)
+
+            if not tokens:
+                tokens_html = '<div style="color: #64748b; text-align: center; padding: 20px;">Şu an havuzda hazır token yok (Zamanlayıcı uykuda veya token tüketildi).</div>'
+            else:
+                t_rows = []
+                for i, t in enumerate(tokens, 1):
+                    badge_cls = "badge-success" if t.get("is_fresh") else "badge-warning"
+                    badge_lbl = "TAZE" if t.get("is_fresh") else "GEÇERLİ"
+                    t_rows.append(f"""
+                        <div class="token-item">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-weight: 700; color: #38bdf8;">Token #{i}</span>
+                                <span class="token-code">{t.get('preview', '')}</span>
+                            </div>
+                            <div style="display: flex; gap: 12px; align-items: center; font-size: 12.5px;">
+                                <span style="color: #94a3b8;">Yaş: <strong>{t.get('age_sec', 0)} sn</strong></span>
+                                <span style="color: #34d399; font-weight: 700;">Kalan Süre: {t.get('remaining_ttl_sec', 0)} sn</span>
+                                <span class="badge {badge_cls}">{badge_lbl}</span>
+                            </div>
+                        </div>
+                    """)
+                tokens_html = "".join(t_rows)
+
+            total_creds = f"{status_data.get('total_remaining_credits', 0):,}".replace(",", ".")
+            tokens_stat = f"{status_data.get('valid_token_count', 0)} / {status_data.get('target_pool_size', 1)} Token"
+            keys_stat = f"{status_data.get('total_keys_count', 0)} Adet"
+
+            rendered_html = CAPTCHA_HTML_TEMPLATE.replace(
+                '<div id="stat-tokens" class="stat-val" style="color: #34d399;">0 / 0</div>',
+                f'<div id="stat-tokens" class="stat-val" style="color: #34d399;">{tokens_stat}</div>'
+            ).replace(
+                '<div id="stat-credits" class="stat-val" style="color: #38bdf8;">0</div>',
+                f'<div id="stat-credits" class="stat-val" style="color: #38bdf8;">{total_creds} Kredi</div>'
+            ).replace(
+                '<div id="stat-keys" class="stat-val" style="color: #fbbf24;">0 Adet</div>',
+                f'<div id="stat-keys" class="stat-val" style="color: #fbbf24;">{keys_stat}</div>'
+            ).replace(
+                '<div id="tokens-list">\n            <div style="color: #64748b; text-align: center; padding: 20px;">Yükleniyor...</div>\n        </div>',
+                f'<div id="tokens-list">\n            {tokens_html}\n        </div>'
+            ).replace(
+                '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 20px;">Yükleniyor...</td></tr>',
+                keys_html
+            )
+            return web.Response(text=rendered_html, content_type="text/html")
+        except Exception:
+            return web.Response(text=CAPTCHA_HTML_TEMPLATE, content_type="text/html")
 
     async def handle_captcha_status_api(self, request: web.Request) -> web.Response:
         try:
