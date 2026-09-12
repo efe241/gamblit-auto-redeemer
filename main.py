@@ -136,7 +136,7 @@ async def run_app():
     await worker.start()
 
     # 7. Initialize Health Watchdog
-    health = HealthMonitor(client=client, db=db, interval_sec=120.0)
+    health = HealthMonitor(client=client, db=db, interval_sec=120.0, account_manager=account_manager)
     await health.start()
 
     # 8. Initialize Discord Gateway Listener (Supports User Account Tokens & Bot Tokens)

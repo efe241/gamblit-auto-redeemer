@@ -3,7 +3,7 @@ Periodic health check and watchdog monitor for Gamblit session, DB, and Discord.
 """
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Any
 from app.gamblit_client import GamblitClient
 from app.database import Database
 
@@ -16,10 +16,12 @@ class HealthMonitor:
         client: GamblitClient,
         db: Database,
         interval_sec: float = 60.0,
+        account_manager: Optional[Any] = None,
     ):
         self.client = client
         self.db = db
         self.interval_sec = interval_sec
+        self.account_manager = account_manager
         self._running = False
         self._task: Optional[asyncio.Task] = None
         self.is_gamblit_healthy = False
@@ -44,7 +46,27 @@ class HealthMonitor:
 
     async def check_once(self) -> bool:
         """Runs a single comprehensive health probe."""
-        # 1. Check Gamblit session
+        # 1. Check Gamblit session via account_manager if active
+        if self.account_manager and len(self.account_manager.accounts) > 0:
+            connected = any(a.client._connected for a in self.account_manager.accounts.values() if a.enabled)
+            authenticated = any(
+                a.client._profile and a.client._profile.is_authenticated 
+                for a in self.account_manager.accounts.values() if a.enabled
+            )
+            self.is_gamblit_healthy = authenticated or connected
+            primary_acc = next((a for a in self.account_manager.accounts.values() if a.enabled), None)
+            prof = primary_acc.client._profile if primary_acc else None
+            username = prof.username if prof else "MultiAccount"
+            level = prof.level if prof else 1
+            bal = prof.balance_dl if prof else 0.0
+            await self.db.save_account_state(
+                account_name=username,
+                level=level,
+                balance_dl=bal,
+                status="ONLINE" if self.is_gamblit_healthy else "EXPIRED_COOKIES",
+            )
+            return self.is_gamblit_healthy
+
         profile = await self.client.get_profile()
         self.is_gamblit_healthy = profile.is_authenticated
 
