@@ -404,6 +404,26 @@ class CaptchaPool:
                             err = str(data.get("error") or data)
                             self.last_error = f"NoneCap: {err}"
                             log.warning(f"NoneCap token dönmedi: {err}")
+                    elif resp.status == 202:
+                        # Asynchronous solve - poll until ready
+                        data = await resp.json()
+                        res_data = data.get("data") if isinstance(data.get("data"), dict) else data
+                        solve_id = res_data.get("id") or data.get("id")
+                        if solve_id:
+                            log.info(f"⏳ NoneCap çözüm devam ediyor (202), ID: {solve_id} sorgulanıyor...")
+                            for _ in range(12):
+                                await asyncio.sleep(1.5)
+                                async with session.get(f"https://api.nonecap.com/v1/solves/{solve_id}", timeout=aiohttp.ClientTimeout(total=5)) as poll_resp:
+                                    if poll_resp.status == 200:
+                                        p_data = await poll_resp.json()
+                                        p_res = p_data.get("data") if isinstance(p_data.get("data"), dict) else p_data
+                                        p_token = p_res.get("token") or p_res.get("passcode") or p_res.get("generated_passcode") or p_data.get("token")
+                                        if p_token:
+                                            self.set_token(p_token)
+                                            log.info("✅ NoneCap hCaptcha tokenını başarıyla çözdü ve havuza ekledi! (202 polling)")
+                                            return p_token
+                                        if p_res.get("status") in ("failed", "error"):
+                                            break
                     else:
                         err_text = await resp.text()
                         self.last_error = f"NoneCap HTTP {resp.status}: {err_text[:100]}"
@@ -458,6 +478,38 @@ class CaptchaPool:
                                     "duration_sec": dur,
                                     "message": f"❌ Token dönmedi: {data}",
                                 }
+                        elif resp.status == 202:
+                            data = await resp.json()
+                            res_data = data.get("data") if isinstance(data.get("data"), dict) else data
+                            solve_id = res_data.get("id") or data.get("id")
+                            if solve_id:
+                                for _ in range(12):
+                                    await asyncio.sleep(1.5)
+                                    async with session.get(f"https://api.nonecap.com/v1/solves/{solve_id}", timeout=aiohttp.ClientTimeout(total=5)) as poll_resp:
+                                        if poll_resp.status == 200:
+                                            p_data = await poll_resp.json()
+                                            p_res = p_data.get("data") if isinstance(p_data.get("data"), dict) else p_data
+                                            p_token = p_res.get("token") or p_res.get("passcode") or p_res.get("generated_passcode") or p_data.get("token")
+                                            if p_token:
+                                                self.set_token(p_token)
+                                                dur = round(time.time() - t0, 2)
+                                                return {
+                                                    "index": index,
+                                                    "key_preview": preview,
+                                                    "success": True,
+                                                    "duration_sec": dur,
+                                                    "token_preview": f"{str(p_token)[:16]}...{str(p_token)[-8:]}",
+                                                    "message": f"✅ Başarılı ({dur} sn)",
+                                                }
+                                            if p_res.get("status") in ("failed", "error"):
+                                                break
+                            return {
+                                "index": index,
+                                "key_preview": preview,
+                                "success": False,
+                                "duration_sec": dur,
+                                "message": f"❌ 202 Zaman aşımı",
+                            }
                         else:
                             err_txt = await resp.text()
                             return {
