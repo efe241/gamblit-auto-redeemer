@@ -287,13 +287,31 @@ class CaptchaPool:
                             rem_credits = max(0, 1300 - charged_total)
                             return {
                                 "index": index,
-                                "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else " (Yedek)"),
+                                "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else f" (Yedek {index})"),
                                 "key_preview": preview,
                                 "solves": solved_count,
                                 "charged_credits": charged_total,
                                 "remaining_credits": rem_credits,
                                 "status": "AKTİF" if rem_credits > 10 else "TÜKENDİ",
                                 "badge": "success" if rem_credits > 100 else ("warning" if rem_credits > 0 else "danger"),
+                            }
+                        elif resp.status in (401, 403):
+                            data = {}
+                            try:
+                                data = await resp.json()
+                            except Exception:
+                                pass
+                            code = data.get("error", {}).get("code")
+                            status_label = "HESAP KİLİTLİ" if code == "account_locked" else "GEÇERSİZ"
+                            return {
+                                "index": index,
+                                "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else f" (Yedek {index})"),
+                                "key_preview": preview,
+                                "solves": 0,
+                                "charged_credits": 0,
+                                "remaining_credits": 0,
+                                "status": status_label,
+                                "badge": "danger",
                             }
             except Exception as e:
                 pass
@@ -303,9 +321,9 @@ class CaptchaPool:
                 "key_preview": preview,
                 "solves": 0,
                 "charged_credits": 0,
-                "remaining_credits": 1300,
-                "status": "BEKLEMEDE",
-                "badge": "info",
+                "remaining_credits": 0,
+                "status": "HATA",
+                "badge": "warning",
             }
 
         for idx, k in enumerate(all_keys, start=1):
