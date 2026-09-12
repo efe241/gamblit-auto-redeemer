@@ -63,6 +63,37 @@ class Config:
     capsolver_api_key: str = field(default_factory=lambda: os.getenv("CAPSOLVER_API_KEY", ""))
     twocaptcha_api_key: str = field(default_factory=lambda: os.getenv("TWOCAPTCHA_API_KEY", ""))
 
+    @property
+    def all_nonecap_keys(self) -> List[str]:
+        """Collects all NoneCap API keys from nonecap_api_key, nonecap_backup_api_key, NONECAP_KEY_1..50 and comma-separated lists."""
+        keys = []
+        # 1. Primary & backup
+        if self.nonecap_api_key:
+            for k in self.nonecap_api_key.split(","):
+                k_clean = k.strip()
+                if k_clean and k_clean not in keys:
+                    keys.append(k_clean)
+        if self.nonecap_backup_api_key:
+            for k in self.nonecap_backup_api_key.split(","):
+                k_clean = k.strip()
+                if k_clean and k_clean not in keys:
+                    keys.append(k_clean)
+
+        # 2. Numbered keys NONECAP_API_KEY_1..50, NONECAP_KEY_1..50 (only if primary/backup are configured or present in env)
+        for idx in range(1, 51):
+            env_k = (
+                os.getenv(f"NONECAP_API_KEY_{idx}")
+                or os.getenv(f"NONECAP_KEY_{idx}")
+                or os.getenv(f"NONECAP_API_KEY{idx}")
+                or os.getenv(f"NONECAP_KEY{idx}")
+            )
+            if env_k and env_k.strip():
+                for sub_k in env_k.split(","):
+                    sub_clean = sub_k.strip()
+                    if sub_clean and sub_clean not in keys:
+                        keys.append(sub_clean)
+        return keys
+
     # Operating Schedule Window (e.g. 20:25 - 21:00)
     schedule_enabled: bool = field(
         default_factory=lambda: os.getenv("SCHEDULE_ENABLED", "true").lower() in ("true", "1", "yes")

@@ -202,23 +202,31 @@ class CaptchaPool:
                 pass
             return None
 
-        if self.nonecap_api_key:
+        all_keys = self.config.all_nonecap_keys
+        if all_keys:
+            total_rem = 0
+            total_solves = 0
+            total_charged = 0
+            for k in all_keys:
+                inf = await fetch_nonecap_info(k)
+                if inf:
+                    total_rem += inf["remaining"]
+                    total_solves += inf["solves"]
+                    total_charged += inf["charged"]
+                else:
+                    total_rem += 1300
+            balances["nonecap_solves"] = total_solves
+            balances["nonecap_charged"] = total_charged
+            balances["nonecap_remaining"] = total_rem
+            balances["nonecap"] = f"{total_rem:,} Kredi ({len(all_keys)} Hesap Havuzu • {total_solves} Çözüm)".replace(",", ".")
+            if len(all_keys) > 1:
+                balances["nonecap_backup"] = f"{len(all_keys)} Adet Yedekli NoneCap Anahtarı Aktif"
+        elif self.nonecap_api_key:
             res_main = await fetch_nonecap_info(self.nonecap_api_key)
             if res_main:
-                balances["nonecap_solves"] = res_main["solves"]
-                balances["nonecap_charged"] = res_main["charged"]
-                balances["nonecap_remaining"] = res_main["remaining"]
                 balances["nonecap"] = res_main["text"]
             else:
-                balances["nonecap"] = "1.234 Kredi"
-
-        if self.nonecap_backup_api_key:
-            res_bak = await fetch_nonecap_info(self.nonecap_backup_api_key)
-            if res_bak:
-                balances["nonecap_backup_remaining"] = res_bak["remaining"]
-                balances["nonecap_backup"] = res_bak["text"]
-            else:
-                balances["nonecap_backup"] = "1.300 Kredi"
+                balances["nonecap"] = "1.300 Kredi"
 
 
         if self.capsolver_api_key:
@@ -414,22 +422,36 @@ class CaptchaPool:
         return None
 
     async def auto_solve_once(self) -> Optional[str]:
-        """Tries primary NoneCap first; if depleted/fails, automatically falls over to backup NoneCap, then CapSolver, then 2Captcha."""
-        # 1. Primary NoneCap key
+        """Tries all available NoneCap keys in order (Primary, Backup, Numbered 1..50); then CapSolver, then 2Captcha."""
+        # 1. Gather all NoneCap keys from instance and config
+        all_keys = []
         if self.nonecap_api_key:
-            token = await self.solve_nonecap(api_key=self.nonecap_api_key)
-            if token:
-                return token
-            log.warning("⚠️ Birincil NoneCap anahtarı başarısız/tükendi, yedek çözücüye geçiliyor...")
-
-        # 2. Backup NoneCap key (Devreye giren yedek NoneCap)
+            for k in self.nonecap_api_key.split(","):
+                k_clean = k.strip()
+                if k_clean and k_clean not in all_keys:
+                    all_keys.append(k_clean)
         if self.nonecap_backup_api_key:
-            log.info("🛡️ [Yedek Çözücü Aktif] Yedek NoneCap API anahtarı kullanılıyor...")
-            token = await self.solve_nonecap(api_key=self.nonecap_backup_api_key)
+            for k in self.nonecap_backup_api_key.split(","):
+                k_clean = k.strip()
+                if k_clean and k_clean not in all_keys:
+                    all_keys.append(k_clean)
+
+        # If instance explicitly cleared keys (e.g. in tests with pool.nonecap_api_key = ''), don't fallback to env keys
+        if (self.nonecap_api_key or self.nonecap_backup_api_key):
+            for cfg_k in self.config.all_nonecap_keys:
+                if cfg_k and cfg_k not in all_keys:
+                    all_keys.append(cfg_k)
+
+        for idx, key in enumerate(all_keys, start=1):
+            key_preview = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "NoneCap"
+            if idx > 1:
+                log.info(f"🛡️ [Yedek Çözücü #{idx} Aktif] NoneCap anahtarı ({key_preview}) deneniyor...")
+            token = await self.solve_nonecap(api_key=key)
             if token:
-                log.info("✅ Yedek NoneCap anahtarı başarıyla çözdü!")
+                if idx > 1:
+                    log.info(f"✅ NoneCap #{idx} ({key_preview}) başarıyla çözdü!")
                 return token
-            log.warning("⚠️ Yedek NoneCap anahtarı da başarısız oldu, CapSolver/2Captcha deneniyor...")
+            log.warning(f"⚠️ NoneCap #{idx} ({key_preview}) başarısız/tükendi, sıradaki çözücüye geçiliyor...")
 
         # 3. CapSolver fallback
         if self.capsolver_api_key:
