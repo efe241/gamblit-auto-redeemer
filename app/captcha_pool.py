@@ -36,6 +36,8 @@ class CaptchaPool:
         # Multi-token buffer: list of (created_at, token)
         self._tokens: list = []
         self._target_pool_size: int = 1
+        self._cached_keys_data: Optional[Dict[str, Any]] = None
+        self._cache_keys_time: float = 0.0
 
     @property
     def target_pool_size(self) -> int:
@@ -251,7 +253,7 @@ class CaptchaPool:
 
         return balances
 
-    async def get_detailed_status(self) -> Dict[str, Any]:
+    async def get_detailed_status(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Returns per-key credit breakdowns, current ready tokens, and solver status."""
         now = time.time()
         ready_tokens = []
@@ -267,71 +269,85 @@ class CaptchaPool:
                     "is_fresh": age < 40,
                 })
 
-        key_details = []
         all_keys = self.config.all_nonecap_keys
-        total_remaining = 0
-        total_solves = 0
-        total_charged = 0
 
-        async def fetch_nonecap_detail(key: str, index: int):
-            preview = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else key
-            try:
-                headers = {"Authorization": f"Bearer {key}"}
-                async with aiohttp.ClientSession(headers=headers) as s:
-                    async with s.get("https://api.nonecap.com/v1/solves", timeout=aiohttp.ClientTimeout(total=4)) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            solves_list = data.get("data", [])
-                            solved_count = sum(1 for item in solves_list if item.get("status") == "solved")
-                            charged_total = sum(int(item.get("credits_charged") or 0) for item in solves_list)
-                            rem_credits = max(0, 1300 - charged_total)
-                            return {
-                                "index": index,
-                                "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else f" (Yedek {index})"),
-                                "key_preview": preview,
-                                "solves": solved_count,
-                                "charged_credits": charged_total,
-                                "remaining_credits": rem_credits,
-                                "status": "AKTİF" if rem_credits > 10 else "TÜKENDİ",
-                                "badge": "success" if rem_credits > 100 else ("warning" if rem_credits > 0 else "danger"),
-                            }
-                        elif resp.status in (401, 403):
-                            data = {}
-                            try:
+        # Check cache (15 seconds TTL) to serve instant responses
+        if not force_refresh and self._cached_keys_data is not None and (now - self._cache_keys_time) < 15.0:
+            key_details = self._cached_keys_data["keys"]
+            total_remaining = self._cached_keys_data["total_remaining"]
+            total_solves = self._cached_keys_data["total_solves"]
+            total_charged = self._cached_keys_data["total_charged"]
+        else:
+            async def fetch_nonecap_detail(key: str, index: int):
+                preview = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else key
+                try:
+                    headers = {"Authorization": f"Bearer {key}"}
+                    async with aiohttp.ClientSession(headers=headers) as s:
+                        async with s.get("https://api.nonecap.com/v1/solves", timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                            if resp.status == 200:
                                 data = await resp.json()
-                            except Exception:
-                                pass
-                            code = data.get("error", {}).get("code")
-                            status_label = "HESAP KİLİTLİ" if code == "account_locked" else "GEÇERSİZ"
-                            return {
-                                "index": index,
-                                "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else f" (Yedek {index})"),
-                                "key_preview": preview,
-                                "solves": 0,
-                                "charged_credits": 0,
-                                "remaining_credits": 0,
-                                "status": status_label,
-                                "badge": "danger",
-                            }
-            except Exception as e:
-                pass
-            return {
-                "index": index,
-                "name": f"NoneCap #{index}",
-                "key_preview": preview,
-                "solves": 0,
-                "charged_credits": 0,
-                "remaining_credits": 0,
-                "status": "HATA",
-                "badge": "warning",
-            }
+                                solves_list = data.get("data", [])
+                                solved_count = sum(1 for item in solves_list if item.get("status") == "solved")
+                                charged_total = sum(int(item.get("credits_charged") or 0) for item in solves_list)
+                                rem_credits = max(0, 1300 - charged_total)
+                                return {
+                                    "index": index,
+                                    "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else f" (Yedek {index})"),
+                                    "key_preview": preview,
+                                    "solves": solved_count,
+                                    "charged_credits": charged_total,
+                                    "remaining_credits": rem_credits,
+                                    "status": "AKTİF" if rem_credits > 10 else "TÜKENDİ",
+                                    "badge": "success" if rem_credits > 100 else ("warning" if rem_credits > 0 else "danger"),
+                                }
+                            elif resp.status in (401, 403):
+                                data = {}
+                                try:
+                                    data = await resp.json()
+                                except Exception:
+                                    pass
+                                code = data.get("error", {}).get("code")
+                                status_label = "HESAP KİLİTLİ" if code == "account_locked" else "GEÇERSİZ"
+                                return {
+                                    "index": index,
+                                    "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else f" (Yedek {index})"),
+                                    "key_preview": preview,
+                                    "solves": 0,
+                                    "charged_credits": 0,
+                                    "remaining_credits": 0,
+                                    "status": status_label,
+                                    "badge": "danger",
+                                }
+                except Exception:
+                    pass
+                return {
+                    "index": index,
+                    "name": f"NoneCap #{index}",
+                    "key_preview": preview,
+                    "solves": 0,
+                    "charged_credits": 0,
+                    "remaining_credits": 0,
+                    "status": "BEKLEMEDE",
+                    "badge": "info",
+                }
 
-        for idx, k in enumerate(all_keys, start=1):
-            detail = await fetch_nonecap_detail(k, idx)
-            key_details.append(detail)
-            total_remaining += detail["remaining_credits"]
-            total_solves += detail["solves"]
-            total_charged += detail["charged_credits"]
+            tasks = [fetch_nonecap_detail(k, idx) for idx, k in enumerate(all_keys, start=1)]
+            if tasks:
+                key_details = list(await asyncio.gather(*tasks))
+            else:
+                key_details = []
+
+            total_remaining = sum(k.get("remaining_credits", 0) for k in key_details)
+            total_solves = sum(k.get("solves", 0) for k in key_details)
+            total_charged = sum(k.get("charged_credits", 0) for k in key_details)
+
+            self._cached_keys_data = {
+                "keys": key_details,
+                "total_remaining": total_remaining,
+                "total_solves": total_solves,
+                "total_charged": total_charged,
+            }
+            self._cache_keys_time = now
 
         return {
             "is_valid": self.is_token_valid,

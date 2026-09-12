@@ -2250,10 +2250,15 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <script>
-        async function fetchData() {
+        async function fetchData(forceRefresh = false) {
             try {
-                const res = await fetch('/api/captcha/status');
-                if (!res.ok) return;
+                const url = forceRefresh ? '/api/captcha/status?refresh=1' : '/api/captcha/status';
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    console.error("Status error:", err);
+                    return;
+                }
                 const d = await res.json();
                 
                 document.getElementById('stat-tokens').innerText = `${d.valid_token_count} / ${d.target_pool_size} Token`;
@@ -2313,6 +2318,10 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
                 }
             } catch(e) {
                 console.error("Captcha veri hatası:", e);
+                const tbody = document.getElementById('keys-tbody');
+                if (tbody && tbody.innerHTML.includes('Yükleniyor...')) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #f87171; padding: 20px;">Veri alınamadı: ' + e + '</td></tr>';
+                }
             }
         }
 
@@ -2320,7 +2329,7 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
             try {
                 const res = await fetch('/api/captcha/solve', { method: 'POST' });
                 if (res.ok) {
-                    fetchData();
+                    fetchData(true);
                 } else {
                     const err = await res.json();
                     alert("Çözüm başarısız: " + (err.error || "Hata"));
@@ -2345,7 +2354,7 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
                         msg += `[Anahtar #${r.index}] (${r.key_preview}): ${r.message}\n`;
                     });
                     alert(msg);
-                    fetchData();
+                    fetchData(true);
                 } else {
                     alert('Test hatası: ' + (d.error || 'Bilinmeyen hata'));
                 }
@@ -2360,7 +2369,7 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         fetchData();
-        setInterval(fetchData, 3000);
+        setInterval(() => fetchData(false), 4000);
     </script>
 </body>
 </html>
@@ -2448,7 +2457,8 @@ class WebPanel:
 
     async def handle_captcha_status_api(self, request: web.Request) -> web.Response:
         try:
-            status_data = await self.captcha_pool.get_detailed_status()
+            refresh = request.query.get("refresh", "0") in ("1", "true")
+            status_data = await self.captcha_pool.get_detailed_status(force_refresh=refresh)
             return web.json_response(status_data)
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
