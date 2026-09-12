@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from pathlib import Path
@@ -191,7 +192,21 @@ class AccountManager:
                     config=self.config,
                 )
                 self.accounts[default_id] = acc
-            self._save()
+
+        # Deduplicate accounts that have identical cookies/sid
+        seen_cookies = set()
+        deduped = {}
+        for aid, acc in self.accounts.items():
+            sid_match = re.search(r"sid=([^;]+)", acc.raw_cookies)
+            key = sid_match.group(1) if sid_match else acc.raw_cookies.strip()
+            if key and key in seen_cookies:
+                log.info(f"Duplicate account detected and ignored: '{acc.name}' (ID: {aid})")
+                continue
+            seen_cookies.add(key)
+            deduped[aid] = acc
+        self.accounts = deduped
+
+        self._save()
 
     def _save(self):
         try:

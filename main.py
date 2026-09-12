@@ -101,7 +101,6 @@ async def run_app():
     try:
         await client.get_session()
         logger.info("Gamblit HTTP session pool warmed up.")
-        asyncio.create_task(client.connect_ws())
     except Exception as e:
         logger.warning(f"Session warmup error: {e}")
 
