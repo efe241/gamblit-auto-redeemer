@@ -11,7 +11,7 @@ Features:
 import asyncio
 import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import aiohttp
 from app.config import Config
 
@@ -360,7 +360,8 @@ class CaptchaPool:
                 async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=40)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        token = data.get("token") or (data.get("solution", {}).get("token") if isinstance(data.get("solution"), dict) else None)
+                        res_data = data.get("data") if isinstance(data.get("data"), dict) else data
+                        token = res_data.get("token") or res_data.get("passcode") or res_data.get("generated_passcode") or data.get("token") or (data.get("solution", {}).get("token") if isinstance(data.get("solution"), dict) else None)
                         if token:
                             self.set_token(token)
                             log.info("✅ NoneCap hCaptcha tokenını başarıyla çözdü ve havuza ekledi!")
@@ -379,6 +380,72 @@ class CaptchaPool:
         finally:
             self.is_solving = False
         return None
+
+    async def test_all_keys(self) -> List[Dict[str, Any]]:
+        """Tests 1 solve on every configured NoneCap API key concurrently."""
+        all_keys = self.config.all_nonecap_keys
+
+        async def _test_single(index: int, key: str):
+            preview = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else key
+            t0 = time.time()
+            try:
+                url = "https://api.nonecap.com/v1/solves?wait=35"
+                headers = {
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "type": "hcaptcha",
+                    "sitekey": self.sitekey,
+                    "url": self.page_url
+                }
+                async with aiohttp.ClientSession(headers=headers) as session:
+                    async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=45)) as resp:
+                        dur = round(time.time() - t0, 2)
+                        if resp.status == 200:
+                            data = await resp.json()
+                            res_data = data.get("data") if isinstance(data.get("data"), dict) else data
+                            token = res_data.get("token") or res_data.get("passcode") or res_data.get("generated_passcode") or data.get("token")
+                            if token:
+                                self.set_token(token)
+                                return {
+                                    "index": index,
+                                    "key_preview": preview,
+                                    "success": True,
+                                    "duration_sec": dur,
+                                    "token_preview": f"{str(token)[:16]}...{str(token)[-8:]}",
+                                    "message": f"✅ Başarılı ({dur} sn)",
+                                }
+                            else:
+                                return {
+                                    "index": index,
+                                    "key_preview": preview,
+                                    "success": False,
+                                    "duration_sec": dur,
+                                    "message": f"❌ Token dönmedi: {data}",
+                                }
+                        else:
+                            err_txt = await resp.text()
+                            return {
+                                "index": index,
+                                "key_preview": preview,
+                                "success": False,
+                                "duration_sec": dur,
+                                "message": f"❌ HTTP {resp.status}: {err_txt[:100]}",
+                            }
+            except Exception as e:
+                dur = round(time.time() - t0, 2)
+                return {
+                    "index": index,
+                    "key_preview": preview,
+                    "success": False,
+                    "duration_sec": dur,
+                    "message": f"❌ Hata: {str(e)}",
+                }
+
+        tasks = [_test_single(i, k) for i, k in enumerate(all_keys, start=1)]
+        results = await asyncio.gather(*tasks)
+        return sorted(results, key=lambda x: x["index"])
 
     async def solve_capsolver(self, api_key: Optional[str] = None) -> Optional[str]:
         """Solves hCaptcha invisible via CapSolver API."""

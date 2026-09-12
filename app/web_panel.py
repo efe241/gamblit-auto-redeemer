@@ -2226,7 +2226,10 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="section-card">
         <div class="section-title">
             <span>🔑 Tanımlı NoneCap API Anahtarları & Kredi Kullanımları</span>
-            <button class="btn" style="margin-left: auto; font-size: 12px; padding: 6px 12px;" onclick="fetchData()">🔄 Tazele</button>
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+                <button id="btn-test-all" class="btn btn-green" style="font-size: 12px; padding: 6px 12px;" onclick="testAllKeys()">🧪 Hepsinden 1 Çözüm Test Et</button>
+                <button class="btn" style="font-size: 12px; padding: 6px 12px;" onclick="fetchData()">🔄 Tazele</button>
+            </div>
         </div>
         <table>
             <thead>
@@ -2327,6 +2330,35 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
+        async function testAllKeys() {
+            const btn = document.getElementById('btn-test-all');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = '⏳ Test Ediliyor...';
+            }
+            try {
+                const res = await fetch('/api/captcha/test-all', { method: 'POST' });
+                const d = await res.json();
+                if (d.status === 'ok') {
+                    let msg = '=== TÜM ANAHTARLARIN TEST SONUÇLARI ===\n\n';
+                    d.results.forEach(r => {
+                        msg += `[Anahtar #${r.index}] (${r.key_preview}): ${r.message}\n`;
+                    });
+                    alert(msg);
+                    fetchData();
+                } else {
+                    alert('Test hatası: ' + (d.error || 'Bilinmeyen hata'));
+                }
+            } catch(e) {
+                alert('İstek hatası: ' + e);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = '🧪 Hepsinden 1 Çözüm Test Et';
+                }
+            }
+        }
+
         fetchData();
         setInterval(fetchData, 3000);
     </script>
@@ -2409,6 +2441,7 @@ class WebPanel:
         self.app.router.add_get("/api/logs", self.handle_logs_api)
         self.app.router.add_get("/captcha", self.handle_captcha_page)
         self.app.router.add_get("/api/captcha/status", self.handle_captcha_status_api)
+        self.app.router.add_post("/api/captcha/test-all", self.handle_test_all_keys)
 
     async def handle_captcha_page(self, request: web.Request) -> web.Response:
         return web.Response(text=CAPTCHA_HTML_TEMPLATE, content_type="text/html")
@@ -2419,6 +2452,13 @@ class WebPanel:
             return web.json_response(status_data)
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_test_all_keys(self, request: web.Request) -> web.Response:
+        try:
+            results = await self.captcha_pool.test_all_keys()
+            return web.json_response({"status": "ok", "results": results})
+        except Exception as e:
+            return web.json_response({"status": "error", "error": str(e)}, status=500)
 
     async def handle_logs_page(self, request: web.Request) -> web.Response:
         return web.Response(text=LOGS_HTML_TEMPLATE, content_type="text/html")
