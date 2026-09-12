@@ -202,32 +202,22 @@ class CaptchaPool:
                 pass
             return None
 
-        all_keys = self.config.all_nonecap_keys
-        if all_keys:
-            total_rem = 0
-            total_solves = 0
-            total_charged = 0
-            for k in all_keys:
-                inf = await fetch_nonecap_info(k)
-                if inf:
-                    total_rem += inf["remaining"]
-                    total_solves += inf["solves"]
-                    total_charged += inf["charged"]
-                else:
-                    total_rem += 1300
-            balances["nonecap_solves"] = total_solves
-            balances["nonecap_charged"] = total_charged
-            balances["nonecap_remaining"] = total_rem
-            balances["nonecap"] = f"{total_rem:,} Kredi ({len(all_keys)} Hesap Havuzu • {total_solves} Çözüm)".replace(",", ".")
-            if len(all_keys) > 1:
-                balances["nonecap_backup"] = f"{len(all_keys)} Adet Yedekli NoneCap Anahtarı Aktif"
-        elif self.nonecap_api_key:
-            res_main = await fetch_nonecap_info(self.nonecap_api_key)
-            if res_main:
-                balances["nonecap"] = res_main["text"]
+        if self.nonecap_api_key:
+            res = await fetch_nonecap_info(self.nonecap_api_key)
+            if res:
+                balances["nonecap"] = res["text"]
+                balances["nonecap_solves"] = res["solves"]
+                balances["nonecap_remaining"] = res["remaining"]
             else:
-                balances["nonecap"] = "1.300 Kredi"
+                balances["nonecap"] = "1.300 Kredi (Kullanılabilir)"
 
+        if self.nonecap_backup_api_key:
+            res_b = await fetch_nonecap_info(self.nonecap_backup_api_key)
+            if res_b:
+                balances["nonecap_backup"] = res_b["text"]
+                balances["nonecap_backup_remaining"] = res_b["remaining"]
+            else:
+                balances["nonecap_backup"] = "1.300 Kredi (Yedek Hazır)"
 
         if self.capsolver_api_key:
             try:
@@ -260,6 +250,91 @@ class CaptchaPool:
                 pass
 
         return balances
+
+    async def get_detailed_status(self) -> Dict[str, Any]:
+        """Returns per-key credit breakdowns, current ready tokens, and solver status."""
+        now = time.time()
+        ready_tokens = []
+        for t0, tok in self._tokens:
+            age = now - t0
+            rem_ttl = max(0, self.token_ttl_seconds - age)
+            if rem_ttl > 0:
+                ready_tokens.append({
+                    "preview": f"{tok[:16]}...{tok[-8:]}" if len(tok) > 24 else tok,
+                    "created_at_epoch": t0,
+                    "age_sec": round(age, 1),
+                    "remaining_ttl_sec": round(rem_ttl, 1),
+                    "is_fresh": age < 40,
+                })
+
+        key_details = []
+        all_keys = self.config.all_nonecap_keys
+        total_remaining = 0
+        total_solves = 0
+        total_charged = 0
+
+        async def fetch_nonecap_detail(key: str, index: int):
+            preview = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else key
+            try:
+                headers = {"Authorization": f"Bearer {key}"}
+                async with aiohttp.ClientSession(headers=headers) as s:
+                    async with s.get("https://api.nonecap.com/v1/solves", timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            solves_list = data.get("data", [])
+                            solved_count = sum(1 for item in solves_list if item.get("status") == "solved")
+                            charged_total = sum(int(item.get("credits_charged") or 0) for item in solves_list)
+                            rem_credits = max(0, 1300 - charged_total)
+                            return {
+                                "index": index,
+                                "name": f"NoneCap #{index}" + (" (Ana)" if index == 1 else " (Yedek)"),
+                                "key_preview": preview,
+                                "solves": solved_count,
+                                "charged_credits": charged_total,
+                                "remaining_credits": rem_credits,
+                                "status": "AKTİF" if rem_credits > 10 else "TÜKENDİ",
+                                "badge": "success" if rem_credits > 100 else ("warning" if rem_credits > 0 else "danger"),
+                            }
+            except Exception as e:
+                pass
+            return {
+                "index": index,
+                "name": f"NoneCap #{index}",
+                "key_preview": preview,
+                "solves": 0,
+                "charged_credits": 0,
+                "remaining_credits": 1300,
+                "status": "BEKLEMEDE",
+                "badge": "info",
+            }
+
+        for idx, k in enumerate(all_keys, start=1):
+            detail = await fetch_nonecap_detail(k, idx)
+            key_details.append(detail)
+            total_remaining += detail["remaining_credits"]
+            total_solves += detail["solves"]
+            total_charged += detail["charged_credits"]
+
+        return {
+            "is_valid": self.is_token_valid,
+            "valid_token_count": len(ready_tokens),
+            "target_pool_size": self.target_pool_size,
+            "token_ttl_seconds": self.token_ttl_seconds,
+            "is_solving": self.is_solving,
+            "last_error": self.last_error,
+            "ready_tokens": ready_tokens,
+            "total_keys_count": len(all_keys),
+            "total_remaining_credits": total_remaining,
+            "total_solves": total_solves,
+            "total_charged_credits": total_charged,
+            "keys": key_details,
+            "schedule": {
+                "start": self.config.schedule_start,
+                "end": self.config.schedule_end,
+                "is_in_schedule": self.config.is_in_schedule(),
+                "countdown": self.config.get_schedule_countdown(),
+            },
+        }
 
 
     async def solve_nonecap(self, api_key: Optional[str] = None) -> Optional[str]:

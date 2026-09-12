@@ -329,7 +329,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <a href="/test" style="color: #c084fc; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3);">🧪 Test Et (/test)</a>
             <a href="/durum" style="color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);">📊 Canlı Durum (/durum)</a>
-            <a href="/logs" style="color: #34d399; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);">📜 Tüm Loglar (/logs)</a>
+            <a href="/logs" style="color: #34d399; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);">📜 Loglar (/logs)</a>
+            <a href="/captcha" style="color: #fbbf24; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">🛡️ Captcha & API (/captcha)</a>
             <span id="dc-badge" class="badge badge-purple">Discord: Bekleniyor</span>
             <span id="solver-badge" class="badge badge-purple">Çözücü: Manuel Mod</span>
             <span id="ws-badge" class="badge badge-offline">WebSocket: Bağlanıyor...</span>
@@ -2013,6 +2014,326 @@ LOGS_HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
+CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamblit Auto-Redeemer Pro - Captcha & API Havuzu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --card-bg: rgba(16, 22, 34, 0.85);
+            --border: #1a2332;
+            --accent: #38bdf8;
+            --green: #10b981;
+            --red: #f43f5e;
+            --yellow: #f59e0b;
+            --purple: #a855f7;
+            --text-dim: #64748b;
+            --text-bright: #f8fafc;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text-bright);
+            padding: 24px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-title { display: flex; align-items: center; gap: 12px; }
+        .logo {
+            font-size: 26px;
+            background: rgba(245, 158, 11, 0.1);
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .nav-links { display: flex; gap: 10px; align-items: center; }
+        .nav-btn {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 8px 14px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { color: white; background: rgba(255, 255, 255, 0.08); }
+        .grid-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #f59e0b, #38bdf8);
+        }
+        .stat-val {
+            font-size: 28px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            margin: 6px 0;
+            color: #f8fafc;
+        }
+        .stat-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .stat-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+        
+        .section-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            color: #f8fafc;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.6px; }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-danger { background: rgba(244, 63, 94, 0.15); color: #f87171; border: 1px solid rgba(244, 63, 94, 0.3); }
+        .badge-info { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+        
+        .token-item {
+            background: #090d14;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .token-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: #c084fc;
+            background: rgba(168, 85, 247, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .btn {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #0369a1; }
+        .btn-green { background: #10b981; }
+        .btn-green:hover { background: #059669; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-title">
+            <div class="logo">🛡️</div>
+            <div>
+                <h1 style="font-size: 20px; font-weight: 800;">Gamblit Auto-Redeemer Pro — Captcha & API Havuzu</h1>
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Canlı hCaptcha tokenları, NoneCap API anahtarları ve kredi durumları</div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-btn">⚡ Ana Panel</a>
+            <a href="/durum" class="nav-btn">📊 Durum</a>
+            <a href="/logs" class="nav-btn">📜 Loglar</a>
+            <a href="/test" class="nav-btn">🧪 Test Et</a>
+        </div>
+    </header>
+
+    <div class="grid-stats">
+        <div class="stat-card">
+            <div class="stat-label">🎯 Hazır Token Havuzu</div>
+            <div id="stat-tokens" class="stat-val" style="color: #34d399;">0 / 0</div>
+            <div id="stat-tokens-sub" class="stat-sub">Sıfır gecikmeli (0ms) hazır bekleyen token</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">💳 Toplam NoneCap Kredisi</div>
+            <div id="stat-credits" class="stat-val" style="color: #38bdf8;">0</div>
+            <div id="stat-credits-sub" class="stat-sub">Tüm API anahtarlarındaki toplam bakiye</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">🔑 Aktif API Anahtarı</div>
+            <div id="stat-keys" class="stat-val" style="color: #fbbf24;">0 Adet</div>
+            <div id="stat-keys-sub" class="stat-sub">Otomatik rotasyonlu NoneCap havuzu</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">⏳ Zamanlayıcı Durumu</div>
+            <div id="stat-sched" class="stat-val" style="font-size: 20px; color: #c084fc;">Uykuda</div>
+            <div id="stat-sched-sub" class="stat-sub">20:30 - 20:45 (Drop Aralığı)</div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-title">
+            <span>⚡ Havuzdaki Sıcak Tokenlar (0ms Yanıt İçin Hazır)</span>
+            <button class="btn btn-green" style="margin-left: auto; font-size: 12px; padding: 6px 12px;" onclick="solveNow()">⚡ 1 Çözüm Yap</button>
+        </div>
+        <div id="tokens-list">
+            <div style="color: #64748b; text-align: center; padding: 20px;">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-title">
+            <span>🔑 Tanımlı NoneCap API Anahtarları & Kredi Kullanımları</span>
+            <button class="btn" style="margin-left: auto; font-size: 12px; padding: 6px 12px;" onclick="fetchData()">🔄 Tazele</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Anahtar Adı</th>
+                    <th>API Key (Önizleme)</th>
+                    <th>Yapılan Çözüm</th>
+                    <th>Harcanan Kredi</th>
+                    <th>Kalan Kredi</th>
+                    <th>Durum</th>
+                </tr>
+            </thead>
+            <tbody id="keys-tbody">
+                <tr><td colspan="7" style="text-align: center; color: #64748b; padding: 20px;">Yükleniyor...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function fetchData() {
+            try {
+                const res = await fetch('/api/captcha/status');
+                if (!res.ok) return;
+                const d = await res.json();
+                
+                document.getElementById('stat-tokens').innerText = `${d.valid_token_count} / ${d.target_pool_size} Token`;
+                document.getElementById('stat-credits').innerText = (d.total_remaining_credits || 0).toLocaleString('tr-TR') + ' Kredi';
+                document.getElementById('stat-keys').innerText = (d.total_keys_count || 0) + ' Adet';
+                
+                if (d.schedule) {
+                    const c = d.schedule.countdown;
+                    document.getElementById('stat-sched').innerText = c.is_active ? '🔥 AKTİF' : '⏳ Uykuda';
+                    document.getElementById('stat-sched-sub').innerText = `${d.schedule.start} - ${d.schedule.end} (${c.countdown_text})`;
+                }
+
+                // Render ready tokens
+                const tBox = document.getElementById('tokens-list');
+                if (!d.ready_tokens || d.ready_tokens.length === 0) {
+                    tBox.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px;">Şu an havuzda hazır token yok (Zamanlayıcı uykuda veya token tüketildi).</div>';
+                } else {
+                    let tHtml = '';
+                    d.ready_tokens.forEach((t, i) => {
+                        tHtml += `
+                            <div class="token-item">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-weight: 700; color: #38bdf8;">Token #${i+1}</span>
+                                    <span class="token-code">${t.preview}</span>
+                                </div>
+                                <div style="display: flex; gap: 12px; align-items: center; font-size: 12.5px;">
+                                    <span style="color: #94a3b8;">Yaş: <strong>${t.age_sec} sn</strong></span>
+                                    <span style="color: #34d399; font-weight: 700;">Kalan Süre: ${t.remaining_ttl_sec} sn</span>
+                                    <span class="badge ${t.is_fresh ? 'badge-success' : 'badge-warning'}">${t.is_fresh ? 'TAZE' : 'GEÇERLİ'}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    tBox.innerHTML = tHtml;
+                }
+
+                // Render keys table
+                const tbody = document.getElementById('keys-tbody');
+                if (!d.keys || d.keys.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 20px;">Tanımlı NoneCap API anahtarı bulunamadı.</td></tr>';
+                } else {
+                    let kHtml = '';
+                    d.keys.forEach(k => {
+                        kHtml += `
+                            <tr>
+                                <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700;">#${k.index}</td>
+                                <td><strong>${k.name}</strong></td>
+                                <td><code style="font-family: 'JetBrains Mono', monospace; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${k.key_preview}</code></td>
+                                <td style="font-family: 'JetBrains Mono', monospace;">${k.solves} Çözüm</td>
+                                <td style="font-family: 'JetBrains Mono', monospace; color: #f87171;">-${k.charged_credits} Kredi</td>
+                                <td style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #34d399;">${k.remaining_credits.toLocaleString('tr-TR')} Kredi</td>
+                                <td><span class="badge badge-${k.badge}">${k.status}</span></td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = kHtml;
+                }
+            } catch(e) {
+                console.error("Captcha veri hatası:", e);
+            }
+        }
+
+        async function solveNow() {
+            try {
+                const res = await fetch('/api/captcha/solve', { method: 'POST' });
+                if (res.ok) {
+                    fetchData();
+                } else {
+                    const err = await res.json();
+                    alert("Çözüm başarısız: " + (err.error || "Hata"));
+                }
+            } catch(e) {
+                alert("İstek hatası: " + e);
+            }
+        }
+
+        fetchData();
+        setInterval(fetchData, 3000);
+    </script>
+</body>
+</html>
+"""
+
 
 class WebPanel:
     def __init__(
@@ -2086,6 +2407,18 @@ class WebPanel:
         self.app.router.add_post("/api/codes/clear", self.handle_clear_codes)
         self.app.router.add_get("/logs", self.handle_logs_page)
         self.app.router.add_get("/api/logs", self.handle_logs_api)
+        self.app.router.add_get("/captcha", self.handle_captcha_page)
+        self.app.router.add_get("/api/captcha/status", self.handle_captcha_status_api)
+
+    async def handle_captcha_page(self, request: web.Request) -> web.Response:
+        return web.Response(text=CAPTCHA_HTML_TEMPLATE, content_type="text/html")
+
+    async def handle_captcha_status_api(self, request: web.Request) -> web.Response:
+        try:
+            status_data = await self.captcha_pool.get_detailed_status()
+            return web.json_response(status_data)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
 
     async def handle_logs_page(self, request: web.Request) -> web.Response:
         return web.Response(text=LOGS_HTML_TEMPLATE, content_type="text/html")
