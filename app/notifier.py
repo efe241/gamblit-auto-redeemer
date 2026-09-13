@@ -158,8 +158,15 @@ class Notifier:
 
         total_credits = 0
         if self.captcha_pool:
-            balances = await self.captcha_pool.get_balances()
-            total_credits = balances.get("total_remaining_credits", 0)
+            try:
+                status_data = await self.captcha_pool.get_detailed_status()
+                total_credits = status_data.get("total_remaining_credits", 0)
+            except Exception:
+                try:
+                    balances = await self.captcha_pool.get_balances()
+                    total_credits = balances.get("total_remaining_credits", 0)
+                except Exception:
+                    total_credits = 0
 
         # Drop window check (20:30 - 20:45)
         now_tr = datetime.now(TR_TZ)
@@ -218,8 +225,15 @@ class Notifier:
 
         total_credits = 0
         if self.captcha_pool:
-            balances = await self.captcha_pool.get_balances()
-            total_credits = balances.get("total_remaining_credits", 0)
+            try:
+                status_data = await self.captcha_pool.get_detailed_status()
+                total_credits = status_data.get("total_remaining_credits", 0)
+            except Exception:
+                try:
+                    balances = await self.captcha_pool.get_balances()
+                    total_credits = balances.get("total_remaining_credits", 0)
+                except Exception:
+                    total_credits = 0
 
         all_ok = total_accounts > 0 and connected_accounts == total_accounts
         status_text = "TÜM HESAPLAR HAZIR 🔥" if all_ok else f"⚠️ {total_accounts - connected_accounts} HESAP ÇEVRİMDIŞI!"

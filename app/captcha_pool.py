@@ -234,6 +234,8 @@ class CaptchaPool:
         else:
             balances["nonecap_backup"] = "Yedek Tanımsız"
 
+        balances["total_remaining_credits"] = (balances.get("nonecap_remaining") or 0) + (balances.get("nonecap_backup_remaining") or 0)
+
         if self.capsolver_api_key:
             try:
                 async with aiohttp.ClientSession() as s:
