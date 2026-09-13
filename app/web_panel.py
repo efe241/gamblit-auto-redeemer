@@ -331,6 +331,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <a href="/durum" style="color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);">📊 Canlı Durum (/durum)</a>
             <a href="/logs" style="color: #34d399; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);">📜 Loglar (/logs)</a>
             <a href="/captcha" style="color: #fbbf24; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">🛡️ Captcha & API (/captcha)</a>
+            <a href="/cc" style="color: #ec4899; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.3);">🍪 Çerez Ayrıştırıcı (/cc)</a>
             <span id="dc-badge" class="badge badge-purple">Discord: Bekleniyor</span>
             <span id="solver-badge" class="badge badge-purple">Çözücü: Manuel Mod</span>
             <span id="ws-badge" class="badge badge-offline">WebSocket: Bağlanıyor...</span>
@@ -1293,6 +1294,8 @@ DURUM_HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="header-links">
                 <a href="/test" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #c084fc;">🧪 Eski Kodla Test Et (/test)</a>
                 <a href="/sonuc">📋 Test Sonucu</a>
+                <a href="/captcha" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.35); color: #fbbf24;">🛡️ Captcha</a>
+                <a href="/cc" style="background: rgba(236, 72, 153, 0.15); border-color: rgba(236, 72, 153, 0.35); color: #f472b6;">🍪 Çerez Ayrıştırıcı (/cc)</a>
                 <a href="/">⚙️ Kontrol Paneli</a>
             </div>
         </header>
@@ -2187,6 +2190,7 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
             <a href="/durum" class="nav-btn">📊 Durum</a>
             <a href="/logs" class="nav-btn">📜 Loglar</a>
             <a href="/test" class="nav-btn">🧪 Test Et</a>
+            <a href="/cc" class="nav-btn" style="color: #ec4899;">🍪 Çerez Ayrıştırıcı (/cc)</a>
         </div>
     </header>
 
@@ -2376,6 +2380,575 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
+COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamblit Çerez Ayrıştırıcı & Formatlayıcı (/cc)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --bg-surface: #0c1017;
+            --card-bg: rgba(16, 22, 34, 0.85);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-hover: rgba(23, 32, 48, 0.95);
+            --accent: #38bdf8;
+            --pink: #ec4899;
+            --green: #10b981;
+            --red: #f43f5e;
+            --yellow: #f59e0b;
+            --purple: #a855f7;
+            --text-dim: #64748b;
+            --text: #94a3b8;
+            --text-bright: #f8fafc;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(236, 72, 153, 0.07) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.07) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0px, transparent 60%);
+            background-attachment: fixed;
+            color: var(--text);
+            padding: 24px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(12, 16, 23, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 18px 24px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-title { display: flex; align-items: center; gap: 14px; }
+        .logo {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
+        }
+
+        .nav-links { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .nav-btn {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 7px 13px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+        }
+        .nav-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .nav-btn-active {
+            color: #ec4899;
+            background: rgba(236, 72, 153, 0.12);
+            border-color: rgba(236, 72, 153, 0.3);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(12px);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge-count {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .guide-box {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.06) 0%, rgba(56, 189, 248, 0.06) 100%);
+            border: 1px dashed rgba(236, 72, 153, 0.25);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            font-size: 13.5px;
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .guide-box ol {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+
+        .guide-box li {
+            margin-bottom: 4px;
+        }
+
+        .guide-box kbd {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #f8fafc;
+        }
+
+        textarea {
+            width: 100%;
+            height: 140px;
+            background: #090d14;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            color: var(--text-bright);
+            resize: vertical;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--pink);
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2);
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 14px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(236, 72, 153, 0.35);
+        }
+        .btn-primary:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+        }
+        .btn-green:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .tokens-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .token-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+        }
+
+        .token-tag.critical {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.35);
+            color: #34d399;
+            font-weight: 700;
+        }
+
+        .token-tag.missing {
+            background: rgba(244, 63, 94, 0.12);
+            border-color: rgba(244, 63, 94, 0.25);
+            color: #fb7185;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #10b981;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 700;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transform: translateY(15px);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.info {
+            background: #0284c7;
+        }
+
+        .toast.error {
+            background: #e11d48;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-title">
+            <div class="logo">🍪</div>
+            <div>
+                <h1 style="font-size: 20px; font-weight: 800; color: #f8fafc;">Gamblit Çerez Ayrıştırıcı & Formatlayıcı</h1>
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Ctrl+A DevTools Çerez Yapıştırıcı & Panel Uyumlu Tek Satır Çevirici</div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-btn">⚡ Ana Panel</a>
+            <a href="/durum" class="nav-btn">📊 Durum</a>
+            <a href="/captcha" class="nav-btn">🛡️ Captcha</a>
+            <a href="/logs" class="nav-btn">📜 Loglar</a>
+            <a href="/test" class="nav-btn">🧪 Test Et</a>
+            <a href="/cc" class="nav-btn nav-btn-active">🍪 /cc</a>
+        </div>
+    </header>
+
+    <div class="guide-box">
+        <strong>💡 Nasıl Hızlı Kullanılır? (Sıfır Uğraş)</strong>
+        <ol>
+            <li>Tarayıcında Gamblit açıkken <kbd>F12</kbd> bas ➔ <strong>Application</strong> (Uygulama) sekmesi ➔ <strong>Cookies</strong> ➔ <code>gamblit.com</code> seç.</li>
+            <li>Tablodaki herhangi bir satıra tıkla, klavyeden <kbd>Ctrl + A</kbd> sonra <kbd>Ctrl + C</kbd> yap (Tüm tabloyu kopyala).</li>
+            <li>Aşağıdaki <strong>Giriş Kutusu</strong>'na gelip <kbd>Ctrl + V</kbd> ile yapıştır.</li>
+            <li>⚡ <strong>Hiçbir butona basmana gerek yok!</strong> Sistem yapıştırdığın an gereksiz sütunları eler, tek satır formata sokar ve <strong>otomatik olarak direkt panona (Clipboard) kopyalar!</strong></li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <span>📥 Ham Çerez Verisi (Ctrl+A DevTools veya Karışık Metin)</span>
+                <span id="badge-in-count" class="badge-count" style="display:none;">0 Satır</span>
+            </div>
+            <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearAll()">Temizle</button>
+        </div>
+        <textarea id="raw-input" placeholder="DevTools'tan kopyaladığın tabloyu veya herhangi bir çerez metnini buraya Ctrl+V ile yapıştır..."></textarea>
+        <div class="action-bar">
+            <span style="font-size: 12px; color: #64748b;">Yapıştırıldığı anda otomatik algılanır ve panoya kopyalanır.</span>
+            <button class="btn btn-primary" onclick="processCookies(true)">⚡ Şimdi Ayrıştır</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <span>📤 Panele Uygun Tek Satır Çerez (sid=...; cf_clearance=...)</span>
+                <span id="badge-out-count" class="badge-count">0 Çerez</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button id="btn-import" class="btn btn-green" style="font-size: 12px; padding: 6px 12px;" onclick="importToActiveAccount()">⚡ Aktif Hesaba 1-Tıkla Aktar</button>
+                <button id="btn-copy" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="copyOutput()">📋 Panoya Kopyala</button>
+            </div>
+        </div>
+        <textarea id="clean-output" readonly placeholder="Ayrıştırılmış çerez burada tek satır olarak belirecek ve otomatik kopyalanacaktır..."></textarea>
+        
+        <div style="margin-top: 16px;">
+            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Algılanan Çerezler</div>
+            <div class="tokens-wrap" id="tokens-list">
+                <span class="token-tag missing">Henüz çerez yapıştırılmadı</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">✔ Panoya Kopyalandı!</div>
+
+    <script>
+        const IGNORED_KEYS = new Set([
+            'name', 'value', 'domain', 'path', 'expires', 'expires / max-age', 'size',
+            'httponly', 'secure', 'samesite', 'priority', 'partition key site', 'key'
+        ]);
+
+        const CRITICAL_KEYS = ['sid', 'cf_clearance', '_vid_t', '_iidt', '__cf_bm'];
+
+        const rawInput = document.getElementById('raw-input');
+        const cleanOutput = document.getElementById('clean-output');
+        const badgeInCount = document.getElementById('badge-in-count');
+        const badgeOutCount = document.getElementById('badge-out-count');
+        const tokensList = document.getElementById('tokens-list');
+        const toastEl = document.getElementById('toast');
+
+        function showToast(msg, type = 'success') {
+            toastEl.textContent = msg;
+            toastEl.className = 'toast show ' + type;
+            setTimeout(() => {
+                toastEl.className = 'toast';
+            }, 2500);
+        }
+
+        function parseRawCookies(raw) {
+            let text = raw.trim();
+            if (!text) return {};
+
+            if (text.startsWith('GAMBLIT_COOKIES=')) {
+                text = text.replace(/^GAMBLIT_COOKIES=\\s*/, '');
+            } else if (text.startsWith('Cookie:')) {
+                text = text.replace(/^Cookie:\\s*/, '');
+            }
+
+            if (text.startsWith('[') && text.endsWith(']')) {
+                try {
+                    const arr = JSON.parse(text);
+                    if (Array.isArray(arr)) {
+                        const res = {};
+                        for (const item of arr) {
+                            if (item && item.name && item.value !== undefined) {
+                                res[item.name.trim()] = item.value.trim();
+                            }
+                        }
+                        if (Object.keys(res).length > 0) return res;
+                    }
+                } catch(e) {}
+            }
+
+            const cookies = {};
+            const lines = text.split(/\\r?\\n/);
+
+            for (const rawLine of lines) {
+                const line = rawLine.trim();
+                if (!line) continue;
+
+                if (line.includes('\\t')) {
+                    const cols = rawLine.split('\\t').map(c => c.trim()).filter(c => c.length > 0);
+                    if (cols.length >= 2) {
+                        const name = cols[0];
+                        const val = cols[1];
+                        if (!IGNORED_KEYS.has(name.toLowerCase())) {
+                            cookies[name] = val;
+                            continue;
+                        }
+                    }
+                }
+
+                if (line.includes('=')) {
+                    const parts = line.split(';');
+                    for (const part of parts) {
+                        const eqIdx = part.indexOf('=');
+                        if (eqIdx > 0) {
+                            const name = part.substring(0, eqIdx).trim();
+                            const val = part.substring(eqIdx + 1).trim();
+                            if (name && !IGNORED_KEYS.has(name.toLowerCase())) {
+                                cookies[name] = val;
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                const spaceCols = line.split(/\\s{2,}/);
+                if (spaceCols.length >= 2) {
+                    const name = spaceCols[0].trim();
+                    const val = spaceCols[1].trim();
+                    if (!IGNORED_KEYS.has(name.toLowerCase())) {
+                        cookies[name] = val;
+                    }
+                }
+            }
+
+            return cookies;
+        }
+
+        function formatCookieString(cookies) {
+            const entries = Object.entries(cookies);
+            if (entries.length === 0) return '';
+            return entries.map(([k, v]) => `${k}=${v}`).join('; ');
+        }
+
+        function updateUI(cookies, shouldAutoCopy = false) {
+            const keys = Object.keys(cookies);
+            const total = keys.length;
+
+            badgeOutCount.textContent = `${total} Çerez`;
+
+            if (total === 0) {
+                cleanOutput.value = '';
+                tokensList.innerHTML = '<span class="token-tag missing">Henüz geçerli çerez bulunamadı</span>';
+                return;
+            }
+
+            const formatted = formatCookieString(cookies);
+            cleanOutput.value = formatted;
+
+            let tagsHtml = '';
+            for (const k of keys) {
+                const isCrit = CRITICAL_KEYS.includes(k);
+                tagsHtml += `<span class="token-tag ${isCrit ? 'critical' : ''}">${isCrit ? '⭐ ' : ''}${k}</span>`;
+            }
+            tokensList.innerHTML = tagsHtml;
+
+            if (shouldAutoCopy && formatted) {
+                navigator.clipboard.writeText(formatted).then(() => {
+                    showToast('✔ Otomatik Ayrıştırıldı ve Panoya Kopyalandı!', 'success');
+                }).catch(() => {
+                    showToast('✔ Ayrıştırıldı (Panoya manuel kopyala)', 'info');
+                });
+            }
+        }
+
+        function processCookies(autoCopy = false) {
+            const text = rawInput.value;
+            const cookies = parseRawCookies(text);
+            updateUI(cookies, autoCopy);
+        }
+
+        rawInput.addEventListener('paste', () => {
+            setTimeout(() => {
+                processCookies(true);
+            }, 50);
+        });
+
+        rawInput.addEventListener('input', () => {
+            processCookies(false);
+        });
+
+        function copyOutput() {
+            const text = cleanOutput.value;
+            if (!text) {
+                showToast('Kopyalanacak çerez yok!', 'error');
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('✔ Panoya Kopyalandı!', 'success');
+            }).catch(() => {
+                cleanOutput.select();
+                document.execCommand('copy');
+                showToast('✔ Seçildi ve Kopyalandı!', 'success');
+            });
+        }
+
+        function clearAll() {
+            rawInput.value = '';
+            cleanOutput.value = '';
+            badgeInCount.style.display = 'none';
+            badgeOutCount.textContent = '0 Çerez';
+            tokensList.innerHTML = '<span class="token-tag missing">Henüz çerez yapıştırılmadı</span>';
+            showToast('Temizlendi', 'info');
+        }
+
+        async function importToActiveAccount() {
+            const text = cleanOutput.value;
+            if (!text) {
+                showToast('Önce çerez yapıştırın!', 'error');
+                return;
+            }
+            const btn = document.getElementById('btn-import');
+            btn.disabled = true;
+            btn.innerText = '⏳ Aktarılıyor...';
+            try {
+                const res = await fetch('/api/auth/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cookies: text })
+                });
+                const d = await res.json();
+                if (d.status === 'ok') {
+                    showToast(`✔ Aktif hesaba uygulandı! Kullanıcı: ${d.username || 'Giriş yapıldı'}`, 'success');
+                } else {
+                    showToast('Hata: ' + (d.error || 'Bilinmeyen hata'), 'error');
+                }
+            } catch(e) {
+                showToast('İstek hatası: ' + e, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '⚡ Aktif Hesaba 1-Tıkla Aktar';
+            }
+        }
+    </script>
+</body>
+</html>
+"""
+
 
 class WebPanel:
     def __init__(
@@ -2452,6 +3025,8 @@ class WebPanel:
         self.app.router.add_get("/captcha", self.handle_captcha_page)
         self.app.router.add_get("/api/captcha/status", self.handle_captcha_status_api)
         self.app.router.add_post("/api/captcha/test-all", self.handle_test_all_keys)
+        self.app.router.add_get("/cc", self.handle_cookie_converter_page)
+        self.app.router.add_get("/cookie", self.handle_cookie_converter_page)
 
     async def handle_captcha_page(self, request: web.Request) -> web.Response:
         try:
@@ -2541,6 +3116,9 @@ class WebPanel:
 
     async def handle_logs_page(self, request: web.Request) -> web.Response:
         return web.Response(text=LOGS_HTML_TEMPLATE, content_type="text/html")
+
+    async def handle_cookie_converter_page(self, request: web.Request) -> web.Response:
+        return web.Response(text=COOKIE_CONVERTER_HTML_TEMPLATE, content_type="text/html")
 
     async def handle_logs_api(self, request: web.Request) -> web.Response:
         limit = int(request.query.get("limit", 2000))
