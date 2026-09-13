@@ -327,6 +327,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <a href="/yardim" style="color: #c084fc; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3);">📚 Yardım Rehberi (/yardım)</a>
             <a href="/test" style="color: #c084fc; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3);">🧪 Test Et (/test)</a>
             <a href="/durum" style="color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);">📊 Canlı Durum (/durum)</a>
             <a href="/logs" style="color: #34d399; text-decoration: none; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);">📜 Loglar (/logs)</a>
@@ -1292,6 +1293,7 @@ DURUM_HTML_TEMPLATE = """<!DOCTYPE html>
                 <span class="live-badge"><span class="live-dot"></span> SİSTEM CANLI</span>
             </div>
             <div class="header-links">
+                <a href="/yardim" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #c084fc;">📚 Yardım Rehberi (/yardım)</a>
                 <a href="/test" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #c084fc;">🧪 Eski Kodla Test Et (/test)</a>
                 <a href="/sonuc">📋 Test Sonucu</a>
                 <a href="/captcha" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.35); color: #fbbf24;">🛡️ Captcha</a>
@@ -1908,6 +1910,8 @@ LOGS_HTML_TEMPLATE = """<!DOCTYPE html>
             <span class="badge-live"><span class="dot"></span> CANLI YAYIN</span>
             <a href="/" class="nav-btn">⚡ Ana Panel</a>
             <a href="/durum" class="nav-btn">📊 Durum</a>
+            <a href="/cc" class="nav-btn" style="color: #ec4899;">🍪 /cc</a>
+            <a href="/yardim" class="nav-btn" style="color: #c084fc;">📚 Yardım</a>
             <a href="/test" class="nav-btn">🧪 Test Et</a>
         </div>
     </header>
@@ -2191,6 +2195,7 @@ CAPTCHA_HTML_TEMPLATE = """<!DOCTYPE html>
             <a href="/logs" class="nav-btn">📜 Loglar</a>
             <a href="/test" class="nav-btn">🧪 Test Et</a>
             <a href="/cc" class="nav-btn" style="color: #ec4899;">🍪 Çerez Ayrıştırıcı (/cc)</a>
+            <a href="/yardim" class="nav-btn" style="color: #c084fc;">📚 Yardım (/yardım)</a>
         </div>
     </header>
 
@@ -2416,9 +2421,9 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
                 radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0px, transparent 60%);
             background-attachment: fixed;
             color: var(--text);
-            padding: 24px 20px;
+            padding: 24px 20px 80px 20px;
             max-width: 1200px;
-            margin: 0 auto;
+            margin: auto;
             -webkit-font-smoothing: antialiased;
         }
 
@@ -2426,7 +2431,7 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(12, 16, 23, 0.6);
+            background: rgba(12, 16, 23, 0.7);
             backdrop-filter: blur(16px);
             border: 1px solid var(--card-border);
             border-radius: 16px;
@@ -2510,27 +2515,48 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
             border: 1px solid rgba(56, 189, 248, 0.3);
         }
 
-        .guide-box {
-            background: linear-gradient(135deg, rgba(236, 72, 153, 0.06) 0%, rgba(56, 189, 248, 0.06) 100%);
-            border: 1px dashed rgba(236, 72, 153, 0.25);
-            border-radius: 12px;
+        .guide-banner {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(56, 189, 248, 0.15) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            border-radius: 14px;
             padding: 16px 20px;
             margin-bottom: 20px;
-            font-size: 13.5px;
-            line-height: 1.6;
-            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
         }
 
-        .guide-box ol {
-            padding-left: 20px;
-            margin-top: 8px;
+        .guide-stepper {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+            margin-bottom: 22px;
         }
 
-        .guide-box li {
-            margin-bottom: 4px;
+        .step-card {
+            background: rgba(12, 16, 23, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s;
+        }
+        .step-card:hover {
+            border-color: rgba(236, 72, 153, 0.3);
+            transform: translateY(-2px);
         }
 
-        .guide-box kbd {
+        .step-tag {
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        kbd {
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 4px;
@@ -2612,6 +2638,16 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
             color: white;
         }
 
+        .btn-test {
+            background: rgba(168, 85, 247, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, 0.35);
+        }
+        .btn-test:hover {
+            background: rgba(168, 85, 247, 0.25);
+            color: #fff;
+        }
+
         .tokens-wrap {
             display: flex;
             flex-wrap: wrap;
@@ -2667,14 +2703,8 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
             opacity: 1;
             transform: translateY(0);
         }
-
-        .toast.info {
-            background: #0284c7;
-        }
-
-        .toast.error {
-            background: #e11d48;
-        }
+        .toast.info { background: #0284c7; }
+        .toast.error { background: #e11d48; }
     </style>
 </head>
 <body>
@@ -2689,6 +2719,7 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="nav-links">
             <a href="/" class="nav-btn">⚡ Ana Panel</a>
             <a href="/durum" class="nav-btn">📊 Durum</a>
+            <a href="/yardim" class="nav-btn" style="color: #a855f7;">📚 Yardım Kılavuzu</a>
             <a href="/captcha" class="nav-btn">🛡️ Captcha</a>
             <a href="/logs" class="nav-btn">📜 Loglar</a>
             <a href="/test" class="nav-btn">🧪 Test Et</a>
@@ -2696,14 +2727,45 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
     </header>
 
-    <div class="guide-box">
-        <strong>💡 Nasıl Hızlı Kullanılır? (Sıfır Uğraş)</strong>
-        <ol>
-            <li>Tarayıcında Gamblit açıkken <kbd>F12</kbd> bas ➔ <strong>Application</strong> (Uygulama) sekmesi ➔ <strong>Cookies</strong> ➔ <code>gamblit.com</code> seç.</li>
-            <li>Tablodaki herhangi bir satıra tıkla, klavyeden <kbd>Ctrl + A</kbd> sonra <kbd>Ctrl + C</kbd> yap (Tüm tabloyu kopyala).</li>
-            <li>Aşağıdaki <strong>Giriş Kutusu</strong>'na gelip <kbd>Ctrl + V</kbd> ile yapıştır.</li>
-            <li>⚡ <strong>Hiçbir butona basmana gerek yok!</strong> Sistem yapıştırdığın an gereksiz sütunları eler, tek satır formata sokar ve <strong>otomatik olarak direkt panona (Clipboard) kopyalar!</strong></li>
-        </ol>
+    <!-- Acemiler İçin Rehber Yönlendirmesi -->
+    <div class="guide-banner">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <span style="font-size: 30px;">📖</span>
+            <div>
+                <strong style="color: #f8fafc; font-size: 14.5px; display: block;">İlk kez mi yapıyorsunuz? Hiç dert etmeyin!</strong>
+                <span style="color: #cbd5e1; font-size: 12.5px;">Adım adım anlatımlı, görsel acemi kılavuzumuz için yardım sayfasını açabilirsiniz.</span>
+            </div>
+        </div>
+        <a href="/yardim#cerez-rehberi" style="background: #a855f7; color: white; padding: 9px 18px; border-radius: 9px; font-weight: 800; text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4);">
+            📚 Adım Adım Kurulum Rehberi (/yardım) ➔
+        </a>
+    </div>
+
+    <!-- 4 Basit Adımda Görsel Kılavuz -->
+    <div class="guide-stepper">
+        <div class="step-card">
+            <span class="step-tag" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">1. ADIM</span>
+            <strong style="color: #f8fafc; font-size: 13.5px; display: block; margin-bottom: 6px;">🌐 Giriş Yap</strong>
+            <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0;">Tarayıcında <code>gamblit.net</code> sitesini aç ve hesabına giriş yap.</p>
+        </div>
+
+        <div class="step-card">
+            <span class="step-tag" style="background: rgba(236, 72, 153, 0.15); color: #ec4899;">2. ADIM</span>
+            <strong style="color: #f8fafc; font-size: 13.5px; display: block; margin-bottom: 6px;">⌨️ F12 Tuşuna Bas</strong>
+            <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0;">Klavyeden <kbd>F12</kbd> tuşuna bas (veya sayfaya sağ tık ➔ <b>İncele</b> de).</p>
+        </div>
+
+        <div class="step-card">
+            <span class="step-tag" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">3. ADIM</span>
+            <strong style="color: #f8fafc; font-size: 13.5px; display: block; margin-bottom: 6px;">📑 Application ➔ Cookies</strong>
+            <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0;">Üstten <b>Application</b> ➔ Soldan <b>Cookies</b> ➔ <code>gamblit.net</code> tıkla.</p>
+        </div>
+
+        <div class="step-card">
+            <span class="step-tag" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">4. ADIM</span>
+            <strong style="color: #f8fafc; font-size: 13.5px; display: block; margin-bottom: 6px;">📋 Ctrl+A, Ctrl+C Yap</strong>
+            <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0;">Tablodan bir yere tıkla, <kbd>Ctrl+A</kbd> + <kbd>Ctrl+C</kbd> yap ve buraya yapıştır!</p>
+        </div>
     </div>
 
     <div class="card">
@@ -2712,11 +2774,14 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
                 <span>📥 Ham Çerez Verisi (Ctrl+A DevTools veya Karışık Metin)</span>
                 <span id="badge-in-count" class="badge-count" style="display:none;">0 Satır</span>
             </div>
-            <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearAll()">Temizle</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-test" style="font-size: 12px; padding: 6px 12px;" onclick="fillSampleCookie()">🧪 Örnek Çerezle Dene</button>
+                <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearAll()">Temizle</button>
+            </div>
         </div>
-        <textarea id="raw-input" placeholder="DevTools'tan kopyaladığın tabloyu veya herhangi bir çerez metnini buraya Ctrl+V ile yapıştır..."></textarea>
+        <textarea id="raw-input" placeholder="DevTools'tan kopyaladığın çerez tablosunu veya herhangi bir metni buraya Ctrl+V ile yapıştır..."></textarea>
         <div class="action-bar">
-            <span style="font-size: 12px; color: #64748b;">Yapıştırıldığı anda otomatik algılanır ve panoya kopyalanır.</span>
+            <span style="font-size: 12px; color: #64748b;">Yapıştırıldığı an arka planda temizlenir, formata sokulur ve panoya kopyalanır.</span>
             <button class="btn btn-primary" onclick="processCookies(true)">⚡ Şimdi Ayrıştır</button>
         </div>
     </div>
@@ -2732,7 +2797,7 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
                 <button id="btn-copy" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="copyOutput()">📋 Panoya Kopyala</button>
             </div>
         </div>
-        <textarea id="clean-output" readonly placeholder="Ayrıştırılmış çerez burada tek satır olarak belirecek ve otomatik kopyalanacaktır..."></textarea>
+        <textarea id="clean-output" readonly placeholder="Ayrıştırılmış temiz çerez burada tek satır olarak belirecek ve otomatik kopyalanacaktır..."></textarea>
         
         <div style="margin-top: 16px;">
             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Algılanan Çerezler</div>
@@ -2759,77 +2824,54 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
         const tokensList = document.getElementById('tokens-list');
         const toastEl = document.getElementById('toast');
 
-        function showToast(msg, type = 'success') {
-            toastEl.textContent = msg;
-            toastEl.className = 'toast show ' + type;
-            setTimeout(() => {
+        let toastTimer = null;
+        function showToast(text, type = 'success') {
+            if (toastTimer) clearTimeout(toastTimer);
+            toastEl.textContent = text;
+            toastEl.className = 'toast show';
+            if (type === 'info') toastEl.classList.add('info');
+            if (type === 'error') toastEl.classList.add('error');
+            toastTimer = setTimeout(() => {
                 toastEl.className = 'toast';
-            }, 2500);
+            }, 3000);
         }
 
-        function parseRawCookies(raw) {
-            let text = raw.trim();
-            if (!text) return {};
-
-            if (text.startsWith('GAMBLIT_COOKIES=')) {
-                text = text.replace(/^GAMBLIT_COOKIES=\\s*/, '');
-            } else if (text.startsWith('Cookie:')) {
-                text = text.replace(/^Cookie:\\s*/, '');
-            }
-
-            if (text.startsWith('[') && text.endsWith(']')) {
-                try {
-                    const arr = JSON.parse(text);
-                    if (Array.isArray(arr)) {
-                        const res = {};
-                        for (const item of arr) {
-                            if (item && item.name && item.value !== undefined) {
-                                res[item.name.trim()] = item.value.trim();
-                            }
-                        }
-                        if (Object.keys(res).length > 0) return res;
-                    }
-                } catch(e) {}
-            }
-
+        function parseRawCookies(rawText) {
             const cookies = {};
-            const lines = text.split(/\\r?\\n/);
+            if (!rawText || !rawText.trim()) return cookies;
 
-            for (const rawLine of lines) {
-                const line = rawLine.trim();
-                if (!line) continue;
+            const lines = rawText.split(/\r?\n/);
+            let tabLineFound = false;
 
-                if (line.includes('\\t')) {
-                    const cols = rawLine.split('\\t').map(c => c.trim()).filter(c => c.length > 0);
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                if (trimmed.includes('\t')) {
+                    const cols = trimmed.split('\t').map(c => c.trim()).filter(Boolean);
                     if (cols.length >= 2) {
                         const name = cols[0];
                         const val = cols[1];
-                        if (!IGNORED_KEYS.has(name.toLowerCase())) {
+                        if (!IGNORED_KEYS.has(name.toLowerCase()) && !IGNORED_KEYS.has(val.toLowerCase())) {
                             cookies[name] = val;
-                            continue;
+                            tabLineFound = true;
                         }
                     }
                 }
+            }
 
-                if (line.includes('=')) {
-                    const parts = line.split(';');
-                    for (const part of parts) {
-                        const eqIdx = part.indexOf('=');
-                        if (eqIdx > 0) {
-                            const name = part.substring(0, eqIdx).trim();
-                            const val = part.substring(eqIdx + 1).trim();
-                            if (name && !IGNORED_KEYS.has(name.toLowerCase())) {
-                                cookies[name] = val;
-                            }
-                        }
-                    }
-                    continue;
-                }
+            if (tabLineFound && Object.keys(cookies).length > 0) {
+                return cookies;
+            }
 
-                const spaceCols = line.split(/\\s{2,}/);
-                if (spaceCols.length >= 2) {
-                    const name = spaceCols[0].trim();
-                    const val = spaceCols[1].trim();
+            const semicolonParts = rawText.split(';');
+            for (const part of semicolonParts) {
+                const trimmed = part.trim();
+                if (!trimmed) continue;
+                const eqIdx = trimmed.indexOf('=');
+                if (eqIdx > 0) {
+                    const name = trimmed.substring(0, eqIdx).trim();
+                    const val = trimmed.substring(eqIdx + 1).trim();
                     if (!IGNORED_KEYS.has(name.toLowerCase())) {
                         cookies[name] = val;
                     }
@@ -2840,9 +2882,11 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         function formatCookieString(cookies) {
-            const entries = Object.entries(cookies);
-            if (entries.length === 0) return '';
-            return entries.map(([k, v]) => `${k}=${v}`).join('; ');
+            const pairs = [];
+            for (const [k, v] of Object.entries(cookies)) {
+                pairs.push(`${k}=${v}`);
+            }
+            return pairs.join('; ');
         }
 
         function updateUI(cookies, shouldAutoCopy = false) {
@@ -2880,6 +2924,12 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
             const text = rawInput.value;
             const cookies = parseRawCookies(text);
             updateUI(cookies, autoCopy);
+        }
+
+        function fillSampleCookie() {
+            rawInput.value = "Name\tValue\tDomain\tPath\tExpires\tsid\ts%3AzWfH79jK9qLx0_DemoSession123456.987654321\t.gamblit.net\t/\t2026-10-01T20:00:00.000Z\tcf_clearance\tabc123xyz_CloudflareTokenBypass_987\t.gamblit.net\t/\t2026-10-01T20:00:00.000Z\t_vid_t\txjK08zL11\t.gamblit.net\t/\t2026-10-01T20:00:00.000Z";
+            processCookies(true);
+            showToast('🧪 Örnek çerez yüklendi ve dönüştürüldü!', 'success');
         }
 
         rawInput.addEventListener('paste', () => {
@@ -2949,6 +2999,697 @@ COOKIE_CONVERTER_HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
+YARDIM_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamblit Auto-Redeemer Pro — Kullanım & Başlangıç Rehberi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --bg-surface: #0c1017;
+            --card-bg: rgba(16, 22, 34, 0.85);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-hover: rgba(23, 32, 48, 0.95);
+            --accent: #38bdf8;
+            --purple: #a855f7;
+            --pink: #ec4899;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #f43f5e;
+            --text: #94a3b8;
+            --text-bright: #f8fafc;
+            --text-dim: #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 60%);
+            background-attachment: fixed;
+            color: var(--text);
+            padding: 24px 20px 80px 20px;
+            max-width: 1200px;
+            margin: auto;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.6;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(12, 16, 23, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 18px 24px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-title { display: flex; align-items: center; gap: 14px; }
+        .logo {
+            width: 46px; height: 46px;
+            background: linear-gradient(135deg, #a855f7 0%, #38bdf8 100%);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+            flex-shrink: 0;
+        }
+
+        .nav-links { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .nav-btn {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 7px 13px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+        }
+        .nav-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .nav-btn-active {
+            color: #a855f7;
+            background: rgba(168, 85, 247, 0.12);
+            border-color: rgba(168, 85, 247, 0.35);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(56, 189, 248, 0.1) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 20px;
+            padding: 32px 28px;
+            margin-bottom: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero h1 {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text-bright);
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            font-size: 15px;
+            color: #cbd5e1;
+            max-width: 850px;
+            line-height: 1.65;
+        }
+
+        .highlights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin-top: 24px;
+        }
+
+        .highlight-item {
+            background: rgba(12, 16, 23, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .highlight-icon {
+            font-size: 24px;
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .toc-bar {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-bottom: 28px;
+            scrollbar-width: none;
+        }
+        .toc-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #cbd5e1;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .toc-btn:hover {
+            background: rgba(168, 85, 247, 0.15);
+            border-color: rgba(168, 85, 247, 0.4);
+            color: #fff;
+        }
+
+        .section-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-bright);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-sub {
+            font-size: 13.5px;
+            color: var(--text-dim);
+            margin-bottom: 22px;
+        }
+
+        .stepper-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin-bottom: 10px;
+        }
+
+        .step-box {
+            background: rgba(12, 16, 23, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 20px;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .step-box:hover {
+            border-color: rgba(168, 85, 247, 0.35);
+            background: rgba(16, 22, 34, 0.9);
+        }
+
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            background: rgba(168, 85, 247, 0.2);
+            color: #c084fc;
+            font-size: 14px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 12px;
+        }
+
+        .step-box h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin-bottom: 8px;
+        }
+
+        .step-box p {
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.55;
+        }
+
+        .guide-step-row {
+            display: flex;
+            gap: 18px;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            align-items: flex-start;
+        }
+        .guide-step-row:last-child { border-bottom: none; }
+
+        .circle-badge {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            font-weight: 800;
+            color: white;
+            flex-shrink: 0;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+        }
+
+        .guide-step-content { flex: 1; }
+        .guide-step-content h4 {
+            font-size: 15.5px;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .guide-step-content p {
+            font-size: 13.5px;
+            color: #cbd5e1;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        kbd {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            padding: 2px 7px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #f8fafc;
+            font-weight: 600;
+        }
+
+        code {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 5px;
+            padding: 2px 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #38bdf8;
+        }
+
+        .tip-callout {
+            background: rgba(16, 185, 129, 0.08);
+            border-left: 4px solid #10b981;
+            border-radius: 0 10px 10px 0;
+            padding: 12px 16px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #a7f3d0;
+        }
+
+        .warning-callout {
+            background: rgba(244, 63, 94, 0.08);
+            border-left: 4px solid #f43f5e;
+            border-radius: 0 10px 10px 0;
+            padding: 12px 16px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #fca5a5;
+        }
+
+        .faq-item {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(12, 16, 23, 0.6);
+            border-radius: 12px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+        .faq-item:hover { border-color: rgba(255, 255, 255, 0.15); }
+
+        .faq-question {
+            padding: 18px 22px;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-bright);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+        .faq-question:hover { color: #38bdf8; }
+
+        .faq-answer {
+            padding: 0 22px 20px 22px;
+            font-size: 13.5px;
+            color: #94a3b8;
+            line-height: 1.65;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            padding-top: 14px;
+        }
+
+        .action-banner {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+            border: 1px solid rgba(236, 72, 153, 0.35);
+            border-radius: 18px;
+            padding: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 18px;
+        }
+
+        .btn-cta {
+            background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
+            transition: all 0.2s;
+        }
+        .btn-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(236, 72, 153, 0.5);
+            opacity: 0.95;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-title">
+            <div class="logo">📚</div>
+            <div>
+                <h1 style="font-size: 20px; font-weight: 800; color: #f8fafc;">Gamblit Auto-Redeemer Pro — Kullanım Kılavuzu</h1>
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Sıfırdan Başlangıç, Çerez Alma, Çoklu Hesap ve Drop Rehberi</div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-btn">⚡ Ana Panel</a>
+            <a href="/durum" class="nav-btn">📊 Durum</a>
+            <a href="/cc" class="nav-btn" style="color: #ec4899;">🍪 Çerez Ayrıştırıcı (/cc)</a>
+            <a href="/captcha" class="nav-btn">🛡️ Captcha</a>
+            <a href="/logs" class="nav-btn">📜 Loglar</a>
+            <a href="/test" class="nav-btn">🧪 Test Et</a>
+            <a href="/yardim" class="nav-btn nav-btn-active">📚 Yardım</a>
+        </div>
+    </header>
+
+    <!-- Hero Bölümü -->
+    <div class="hero">
+        <h1>👋 Hoş Geldiniz! Gamblit Auto-Redeemer Pro Nedir?</h1>
+        <p>
+            Gamblit sitesinde her akşam saat <strong>20:30 - 20:45 (TR Saati)</strong> arasında promosyon kodları (drop) dağıtılır. 
+            Bu sistem, kod paylaşıldığı salisede (yaklaşık <strong>25 milisaniye</strong> içinde) insan reflekslerinden 100 kat daha hızlı davranarak 
+            tüm hesaplarınıza ödülü (Growtopia DL) yükler. Bilgisayarınızı açık tutmanıza gerek kalmadan bulut sunucuda 7/24 kesintisiz çalışır.
+        </p>
+
+        <div class="highlights-grid">
+            <div class="highlight-item">
+                <div class="highlight-icon">⚡</div>
+                <div>
+                    <strong style="color:#f8fafc; font-size:13.5px; display:block;">25ms Yanıt Hızı</strong>
+                    <span style="font-size:12px; color:#94a3b8;">Canlı WebSocket & anında tetikleme</span>
+                </div>
+            </div>
+            <div class="highlight-item">
+                <div class="highlight-icon">☁️</div>
+                <div>
+                    <strong style="color:#f8fafc; font-size:13.5px; display:block;">7/24 Bulut Çalışma</strong>
+                    <span style="font-size:12px; color:#94a3b8;">PC/telefon kapalıyken bile yakalar</span>
+                </div>
+            </div>
+            <div class="highlight-item">
+                <div class="highlight-icon">👥</div>
+                <div>
+                    <strong style="color:#f8fafc; font-size:13.5px; display:block;">Çoklu Hesap Desteği</strong>
+                    <span style="font-size:12px; color:#94a3b8;">7+ hesapla aynı anda ödül kapma</span>
+                </div>
+            </div>
+            <div class="highlight-item">
+                <div class="highlight-icon">🛡️</div>
+                <div>
+                    <strong style="color:#f8fafc; font-size:13.5px; display:block;">Otomatik Captcha</strong>
+                    <span style="font-size:12px; color:#94a3b8;">Yedekli NoneCap çözücü havuzu</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hızlı Bölüm Menüsü -->
+    <div class="toc-bar">
+        <a href="#hizli-baslangic" class="toc-btn">🚀 3 Adımda Hızlı Başlangıç</a>
+        <a href="#cerez-rehberi" class="toc-btn">🍪 Adım Adım Çerez (Cookie) Alma</a>
+        <a href="#coklu-hesap" class="toc-btn">👥 Çoklu Hesap Yönetimi</a>
+        <a href="#drop-saatleri" class="toc-btn">⏰ Drop Saatleri & Uyku Modu</a>
+        <a href="#sss" class="toc-btn">❓ Sıkça Sorulan Sorular (SSS)</a>
+    </div>
+
+    <!-- Bölüm 1: 3 Adımda Hızlı Başlangıç -->
+    <div class="section-card" id="hizli-baslangic">
+        <div class="section-title">
+            <span>🚀 3 Adımda Sistemi Başlatın (Özet)</span>
+        </div>
+        <div class="section-sub">Sistemi hiç bilmeyen birisi bile bu 3 adımla 3 dakika içinde hazır olabilir.</div>
+
+        <div class="stepper-grid">
+            <div class="step-box">
+                <div class="step-num">1</div>
+                <h3>Çerezini Al</h3>
+                <p><code>gamblit.net</code> sitesine tarayıcından giriş yap. <kbd>F12</kbd> tuşuna basıp çerez tablonu kopyala.</p>
+            </div>
+            <div class="step-box">
+                <div class="step-num">2</div>
+                <h3>/cc Sayfasına Yapıştır</h3>
+                <p><a href="/cc" style="color: #ec4899; text-decoration: none; font-weight: 700;">/cc Çerez Ayrıştırıcı</a> sayfasına yapıştır. Sistem çerezini otomatik temizleyip panona kopyalar.</p>
+            </div>
+            <div class="step-box">
+                <div class="step-num">3</div>
+                <h3>Panele Ekle & Arkana Yaslan</h3>
+                <p><a href="/" style="color: #38bdf8; text-decoration: none; font-weight: 700;">Ana Panel</a> üzerinden "Hesap Ekle" kısmına yapıştır. Akşam 20:30'da bot kodları senin yerine kapar!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bölüm 2: Adım Adım Resimli Çerez Alma Kılavuzu -->
+    <div class="section-card" id="cerez-rehberi">
+        <div class="section-title">
+            <span>🍪 Adım Adım Çerez (Cookie) Nasıl Alınır?</span>
+        </div>
+        <div class="section-sub">Google Chrome, Microsoft Edge, Brave veya Opera tarayıcıları için adım adım anlatım:</div>
+
+        <div class="guide-step-row">
+            <div class="circle-badge">1</div>
+            <div class="guide-step-content">
+                <h4>Gamblit Sitesine Girin ve Oturum Açın</h4>
+                <p>Tarayıcınızda <code>https://gamblit.net</code> adresine gidin. Kullanıcı adı ve şifrenizle hesabınıza başarılı bir şekilde giriş yapın.</p>
+            </div>
+        </div>
+
+        <div class="guide-step-row">
+            <div class="circle-badge">2</div>
+            <div class="guide-step-content">
+                <h4>Geliştirici Araçlarını (F12) Açın</h4>
+                <p>Klavyenizden <kbd>F12</kbd> tuşuna basın. (Eğer dizüstü bilgisayarda çalışmazsa <kbd>Fn + F12</kbd> basın veya web sayfasında boş bir yere sağ tıklayıp <strong>İncele (Inspect)</strong> seçeneğine tıklayın).</p>
+                <div class="tip-callout">💡 Tarayıcının sağında veya altında kodların olduğu bir geliştirici penceresi açılacaktır.</div>
+            </div>
+        </div>
+
+        <div class="guide-step-row">
+            <div class="circle-badge">3</div>
+            <div class="guide-step-content">
+                <h4>Application (Uygulama) Sekmesini Bulun</h4>
+                <p>Açılan pencerenin en üst sekme çubuğunda <em>Elements, Console, Sources, Network, Application...</em> yazar. Buradan <strong>Application</strong> (Türkçe ise <strong>Uygulama</strong>) sekmesine tıklayın.</p>
+                <div class="tip-callout">💡 Eğer "Application" görünmüyorsa, pencere dar olduğu için sağdaki küçük <strong><code>>></code></strong> simgesine tıklayın, açılan listeden "Application"ı seçin.</div>
+            </div>
+        </div>
+
+        <div class="guide-step-row">
+            <div class="circle-badge">4</div>
+            <div class="guide-step-content">
+                <h4>Cookies (Çerezler) ➔ gamblit.net Seçin</h4>
+                <p>Sol menüdeki <strong>Storage (Depolama)</strong> başlığının altında <strong>Cookies (Çerezler)</strong> klasörünü göreceksiniz. Yanındaki oka tıklayın ve altından <code>https://gamblit.net</code> adresine tıklayın.</p>
+            </div>
+        </div>
+
+        <div class="guide-step-row">
+            <div class="circle-badge">5</div>
+            <div class="guide-step-content">
+                <h4>Ctrl+A ve Ctrl+C ile Hepsini Kopyalayın</h4>
+                <p>Sağ tarafta <em>Name, Value, Domain...</em> sütunları olan bir çerez tablosu çıkacaktır. Bu tablodaki herhangi bir satıra bir kez tıklayın. Ardından klavyenizden <kbd>Ctrl + A</kbd> (tümünü seç) ve hemen ardından <kbd>Ctrl + C</kbd> (kopyala) yapın.</p>
+            </div>
+        </div>
+
+        <div class="guide-step-row">
+            <div class="circle-badge">6</div>
+            <div class="guide-step-content">
+                <h4>Sitemizdeki /cc Sayfasına Yapıştırın!</h4>
+                <p>Sitemizin üst menüsündeki <a href="/cc" style="color: #ec4899; font-weight: 700;">🍪 Çerez Ayrıştırıcı (/cc)</a> sayfasına gidin. Giriş kutusuna <kbd>Ctrl + V</kbd> ile yapıştırın.</p>
+                <div class="tip-callout">
+                    ✨ <strong>Sihir Başlasın:</strong> Hiçbir butona basmanıza gerek kalmaz! Sistem tablodaki gereksiz verileri ayıklar, <code>sid=...; cf_clearance=...</code> formatına dönüştürür ve doğrudan panonuza kopyalar. İsterseniz <strong>"⚡ Aktif Hesaba 1-Tıkla Aktar"</strong> butonuna basarak doğrudan panele de yükleyebilirsiniz!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bölüm 3: Çoklu Hesap Yönetimi -->
+    <div class="section-card" id="coklu-hesap">
+        <div class="section-title">
+            <span>👥 Çoklu Hesap (Multi-Account) Nasıl Eklenir?</span>
+        </div>
+        <div class="section-sub">Kazancınızı 7 katına kadar çıkarın. Sistem tüm hesaplara aynı anda kodu basar!</div>
+
+        <div style="font-size: 14px; color: #cbd5e1; line-height: 1.7; margin-bottom: 20px;">
+            Sistemimiz birden fazla Gamblit hesabını aynı anda yönetmek için özel olarak tasarlanmıştır. 
+            Discord'a kod paylaşıldığı anda bot, her hesabın açık olan WebSocket soketi üzerinden AYNI ANDA istek atar. 
+            Böylece 7 hesabınız varsa, 7 hesabınız birden 25-40 milisaniye içinde kodu yakalayıp DL'leri kazanır.
+        </div>
+
+        <div class="stepper-grid">
+            <div class="step-box">
+                <div class="step-num">A</div>
+                <h3>Farklı Profil Açın</h3>
+                <p>Chrome veya tarayıcınızda her Gamblit hesabı için ayrı bir kullanıcı profili (veya Gizli Sekme) açarak hesaplarınıza giriş yapın.</p>
+            </div>
+            <div class="step-box">
+                <div class="step-num">B</div>
+                <h3>Her Hesabın Çerezini Alın</h3>
+                <p>Her hesabın profilinde <kbd>F12</kbd> ile çerezini alıp <a href="/cc" style="color: #ec4899; text-decoration: none; font-weight: 700;">/cc</a> sayfasında temizleyin.</p>
+            </div>
+            <div class="step-box">
+                <div class="step-num">C</div>
+                <h3>Panele Ekleyin</h3>
+                <p><a href="/" style="color: #38bdf8; text-decoration: none; font-weight: 700;">Ana Panel</a>'deki <strong>👥 Çoklu Hesap Yönetimi</strong> alanından hesaba isim verip çerezini yapıştırın.</p>
+            </div>
+        </div>
+
+        <div class="tip-callout" style="margin-top: 18px;">
+            📊 Tüm hesaplarınızın online olup olmadığını, seviyelerini ve biriken DL bakiyelerini <a href="/durum" style="color: #34d399; font-weight: 800; text-decoration: none;">/durum (Canlı Durum)</a> sayfasından anlık izleyebilirsiniz.
+        </div>
+    </div>
+
+    <!-- Bölüm 4: Drop Saatleri ve Akıllı Uyku Modu -->
+    <div class="section-card" id="drop-saatleri">
+        <div class="section-title">
+            <span>⏰ Akşam Drop Saatleri (20:30) & Akıllı Uyku Modu</span>
+        </div>
+        <div class="section-sub">Bot gün boyunca ne yapar ve akşam drop anında nasıl davranır?</div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+            <div style="background: rgba(12, 16, 23, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px;">
+                <div style="color: #fbbf24; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">Gün Boyu</div>
+                <h4 style="color: #f8fafc; font-size: 15px; margin-bottom: 8px;">⏳ Akıllı Uyku Modu</h4>
+                <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.55; margin: 0;">
+                    Drop saatine saatler varken sistem kendini korumaya alır. Boş yere captcha kredisi veya sunucu kaynağı harcanmaz. Discord Gateway 0ms ile tetikte bekler.
+                </p>
+            </div>
+
+            <div style="background: rgba(12, 16, 23, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px;">
+                <div style="color: #38bdf8; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">Saat 20:15</div>
+                <h4 style="color: #f8fafc; font-size: 15px; margin-bottom: 8px;">🛡️ Drop Öncesi Sağlık Raporu</h4>
+                <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.55; margin: 0;">
+                    Sistem 20:15'te otomatik olarak tüm hesapların oturumunu, bakiyelerini ve NoneCap kredilerini tarar. Discord kanalınıza detaylı sağlık raporu atar.
+                </p>
+            </div>
+
+            <div style="background: rgba(12, 16, 23, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px;">
+                <div style="color: #a855f7; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">Saat 20:25 - 20:30</div>
+                <h4 style="color: #f8fafc; font-size: 15px; margin-bottom: 8px;">🔥 Isınma & Token Hazırlığı</h4>
+                <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.55; margin: 0;">
+                    Sistem hCaptcha çözücü havuzunu doldurur, tüm hesapların WebSocket soketlerini sıcak tutar ve kodun gelmesini beklemeye başlar.
+                </p>
+            </div>
+
+            <div style="background: rgba(12, 16, 23, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px;">
+                <div style="color: #10b981; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">Saat 20:30 - 20:45</div>
+                <h4 style="color: #f8fafc; font-size: 15px; margin-bottom: 8px;">⚡ DROP ANI (25ms Avı)</h4>
+                <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.55; margin: 0;">
+                    Discord'da kod yayınlandığı salisede bot kodu kapar, hazır tokenla birlikte soketten gönderir ve ödülü hesaba geçirir!
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bölüm 5: SSS -->
+    <div class="section-card" id="sss">
+        <div class="section-title">
+            <span>❓ Sıkça Sorulan Sorular (SSS)</span>
+        </div>
+        <div class="section-sub">Kullanıcıların en çok merak ettiği konuların yanıtları:</div>
+
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>1. Bilgisayarımı veya telefonumu açık tutmam gerekiyor mu?</span>
+                <span>▼</span>
+            </div>
+            <div class="faq-answer">
+                <strong>Kesinlikle HAYIR!</strong> Sistem Render bulut sunucularında 7 gün 24 saat kesintisiz çalışmaktadır. Bilgisayarınızı veya telefonunuzu tamamen kapatsanız bile bot drop saatinde çalışıp kodları sizin için yakalar.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>2. Çerezimin süresi ne zaman biter? Çerez düşerse ne yapmalıyım?</span>
+                <span>▼</span>
+            </div>
+            <div class="faq-answer">
+                Gamblit oturum çerezleri ortalama <strong>2 hafta ile 1 ay</strong> arasında geçerliliğini korur. Eğer bir hesabın çerezi düşerse sistem Discord webhook'unuza anında <strong>"⚠️ Hesap Çevrimdışı!"</strong> uyarısı yollar. Tek yapmanız gereken o hesaba tarayıcıdan girip F12 ile yeni çerezinizi almak ve panele yapıştırmaktır.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>3. Hesabım banlanır veya ceza alır mı?</span>
+                <span>▼</span>
+            </div>
+            <div class="faq-answer">
+                Sistem Gamblit'in resmi WebSocket protokolünü ve gerçek tarayıcı istek başlıklarını (headers) birebir taklit eder. Gamblit güvenlik duvarı botu gerçek bir kullanıcı gibi algılar. Bu nedenle ban riski yoktur.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>4. Kazandığım DL'leri Growtopia'ya nasıl çekerim?</span>
+                <span>▼</span>
+            </div>
+            <div class="faq-answer">
+                <code>gamblit.net</code> web sitesine hesabınızla giriş yapın. Üst menüde yer alan bakiye butonuna tıklayıp <strong>Withdraw (Çekim)</strong> seçeneğini seçin. Growtopia oyunundaki <strong>GrowID</strong>'nizi ve içinde depo kutusu (Drop Box) bulunan <strong>Dünya (World)</strong> adınızı yazarak talep verin. Sistem saniyeler içinde DL'leri teslim eder.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>5. NoneCap Captcha kredisi nedir ve ne işe yarar?</span>
+                <span>▼</span>
+            </div>
+            <div class="faq-answer">
+                Gamblit kod girilirken bot koruması olarak hCaptcha sorar. Sistem NoneCap yapay zeka havuzunu kullanarak bu captcha'ları arka planda otomatik çözer. Kredi durumunuzu <a href="/captcha" style="color: #fbbf24; text-decoration: none; font-weight: 700;">/captcha</a> sayfasından veya 15 dakikada bir Discord'a gelen durum raporundan takip edebilirsiniz.
+            </div>
+        </div>
+    </div>
+
+    <!-- Alt Eylem Bannerı -->
+    <div class="action-banner">
+        <div>
+            <h3 style="font-size: 18px; font-weight: 800; color: #f8fafc; margin-bottom: 4px;">Hazır mısınız? Hemen Çerezinizi Ekleyin!</h3>
+            <p style="font-size: 13.5px; color: #cbd5e1; margin: 0;">Çerez ayrıştırıcıya giderek 1 tıkla çerezinizi panele aktarabilir veya canlı durumunuzu kontrol edebilirsiniz.</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/cc" class="btn-cta">🍪 Çerez Ayrıştırıcıyı Aç (/cc)</a>
+            <a href="/durum" class="btn-cta" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); box-shadow: 0 6px 20px rgba(2, 132, 199, 0.4);">📊 Canlı Durumu İzle (/durum)</a>
+        </div>
+    </div>
+</body>
+</html>
+"""
 
 class WebPanel:
     def __init__(
@@ -3027,6 +3768,9 @@ class WebPanel:
         self.app.router.add_post("/api/captcha/test-all", self.handle_test_all_keys)
         self.app.router.add_get("/cc", self.handle_cookie_converter_page)
         self.app.router.add_get("/cookie", self.handle_cookie_converter_page)
+        self.app.router.add_get("/yardim", self.handle_yardim_page)
+        self.app.router.add_get("/yardım", self.handle_yardim_page)
+        self.app.router.add_get("/help", self.handle_yardim_page)
 
     async def handle_captcha_page(self, request: web.Request) -> web.Response:
         try:
@@ -3119,6 +3863,9 @@ class WebPanel:
 
     async def handle_cookie_converter_page(self, request: web.Request) -> web.Response:
         return web.Response(text=COOKIE_CONVERTER_HTML_TEMPLATE, content_type="text/html")
+
+    async def handle_yardim_page(self, request: web.Request) -> web.Response:
+        return web.Response(text=YARDIM_HTML_TEMPLATE, content_type="text/html")
 
     async def handle_logs_api(self, request: web.Request) -> web.Response:
         limit = int(request.query.get("limit", 2000))

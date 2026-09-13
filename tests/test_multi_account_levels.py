@@ -352,6 +352,19 @@ async def test_durum_page_and_api(tmp_path):
     assert resp_sonuc_html.status == 200
     assert "Test Redeem Sonuçları" in resp_sonuc_html.text
 
+    # Test /cc (Cookie Converter) and /yardim (Help Guide)
+    resp_cc = await panel.handle_cookie_converter_page(req)
+    assert resp_cc.status == 200
+    assert "Çerez Ayrıştırıcı" in resp_cc.text
+    assert "Örnek Çerezle Dene" in resp_cc.text
+
+    resp_yardim = await panel.handle_yardim_page(req)
+    assert resp_yardim.status == 200
+    assert "Kullanım Kılavuzu" in resp_yardim.text
+    assert "3 Adımda Hızlı Başlangıç" in resp_yardim.text
+    assert "Sıkça Sorulan Sorular" in resp_yardim.text
+
+
     # Mock redeem_code response
     from app.models import RedeemResult, RedeemStatus
     async def mock_expired_redeem(c, **kwargs):
