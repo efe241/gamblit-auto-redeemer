@@ -19,6 +19,12 @@ class Config:
     discord_token: str = field(default_factory=lambda: os.getenv("DISCORD_TOKEN", ""))
     discord_guild_id: int = field(default_factory=lambda: int(os.getenv("DISCORD_GUILD_ID", "0") or 0))
     discord_channel_id: int = field(default_factory=lambda: int(os.getenv("DISCORD_CHANNEL_ID", "0") or 0))
+    discord_webhook_url: str = field(
+        default_factory=lambda: os.getenv(
+            "DISCORD_WEBHOOK_URL",
+            "https://discord.com/api/webhooks/1548701938743250995/womnxNpNwiASKNL3HQCUNaUz0ljA9EM4CKWvaRHUdhXNWWmYPqpgppskv8SmgUY7TX_G",
+        ).strip()
+    )
 
     # Gamblit Account Settings
     gamblit_base_url: str = field(

@@ -26,6 +26,7 @@ class RedeemWorker:
         config: Config,
         captcha_pool: Optional[Any] = None,
         account_manager: Optional[Any] = None,
+        notifier: Optional[Any] = None,
     ):
         self.queue = queue
         self.client = client
@@ -34,6 +35,7 @@ class RedeemWorker:
         self.config = config
         self.captcha_pool = captcha_pool
         self.account_manager = account_manager
+        self.notifier = notifier
         self._running = False
         self._task: Optional[asyncio.Task] = None
 
@@ -112,6 +114,18 @@ class RedeemWorker:
 
             if not best_result and multi_results:
                 best_result = multi_results[0].get("result")
+
+            if self.notifier and best_result:
+                lat = best_result.latency.http_request_ms if best_result.latency else 0.0
+                asyncio.create_task(
+                    self.notifier.notify_redeem(
+                        code=item.code,
+                        status=best_result.status.value,
+                        message=best_result.message,
+                        latency_ms=lat,
+                        multi_claims=multi_results,
+                    )
+                )
 
             return best_result or RedeemResult(
                 code=item.code,
@@ -206,5 +220,16 @@ class RedeemWorker:
             log.info(f"[SUCCESS] Code: {code} | {result.message} | {latency_breakdown}")
         else:
             log.warning(f"[{result.status.value}] Code: {code} | {result.message} | {latency_breakdown}")
+
+        if self.notifier and result:
+            lat = result.latency.http_request_ms if result.latency else 0.0
+            asyncio.create_task(
+                self.notifier.notify_redeem(
+                    code=code,
+                    status=result.status.value,
+                    message=result.message,
+                    latency_ms=lat,
+                )
+            )
 
         return result

@@ -124,6 +124,17 @@ async def run_app():
     await queue.initialize()
 
     metrics = MetricsTracker()
+
+    # 6.1 Initialize Discord Webhook Notifier
+    from app.notifier import Notifier
+    notifier = Notifier(
+        config=cfg,
+        account_manager=account_manager,
+        captcha_pool=captcha_pool,
+        metrics=metrics,
+    )
+    await notifier.start()
+
     worker = RedeemWorker(
         queue=queue,
         client=client,
@@ -132,6 +143,7 @@ async def run_app():
         config=cfg,
         captcha_pool=captcha_pool,
         account_manager=account_manager,
+        notifier=notifier,
     )
     await worker.start()
 
@@ -216,6 +228,7 @@ async def run_app():
         await gateway_listener.stop()
         await console_dash.stop()
         await web_panel.stop()
+        await notifier.stop()
         await health.stop()
         await worker.stop()
         await account_manager.close_all()
