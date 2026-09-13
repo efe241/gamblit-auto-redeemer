@@ -144,13 +144,16 @@ class Notifier:
         total_accounts = 0
         connected_accounts = 0
         total_dl = 0.0
+        total_wl = 0
         acc_names = []
 
         if self.account_manager:
             summary = self.account_manager.get_summary()
             total_accounts = summary.get("total_accounts", 0)
             connected_accounts = summary.get("connected_accounts", 0)
-            total_dl = summary.get("total_dl", 0.0)
+            raw_val = float(summary.get("total_dl", 0.0) or 0.0)
+            total_dl = raw_val / 100.0
+            total_wl = int(round(raw_val))
             for acc in self.account_manager.accounts.values():
                 if acc.enabled and acc.client and acc.client._connected:
                     u = acc.client._profile.username if acc.client._profile else acc.name
@@ -196,7 +199,7 @@ class Notifier:
                 "inline": False,
             },
             {"name": "💳 NoneCap Kredisi", "value": f"**{total_credits:,}** Kredi".replace(",", "."), "inline": True},
-            {"name": "💰 Toplam DL Bakiyesi", "value": f"**{total_dl:.2f} DL**", "inline": True},
+            {"name": "💰 Toplam Bakiye", "value": f"**{total_dl:.2f} DL** ({total_wl} WL)", "inline": True},
             {"name": "⏳ Zamanlayıcı", "value": sched_status, "inline": False},
             {"name": "🎧 Discord Gateway", "value": "● Dinleniyor (0ms)", "inline": True},
             {"name": "🌐 Web Paneli", "value": "[Paneli Aç](https://gamblit-auto-redeemer.onrender.com)", "inline": True},
@@ -216,12 +219,15 @@ class Notifier:
         total_accounts = 0
         connected_accounts = 0
         total_dl = 0.0
+        total_wl = 0
 
         if self.account_manager:
             summary = self.account_manager.get_summary()
             total_accounts = summary.get("total_accounts", 0)
             connected_accounts = summary.get("connected_accounts", 0)
-            total_dl = summary.get("total_dl", 0.0)
+            raw_val = float(summary.get("total_dl", 0.0) or 0.0)
+            total_dl = raw_val / 100.0
+            total_wl = int(round(raw_val))
 
         total_credits = 0
         if self.captcha_pool:
@@ -242,7 +248,7 @@ class Notifier:
         fields = [
             {"name": "👥 Bağlı Hesaplar", "value": f"**{connected_accounts} / {total_accounts}** Aktif", "inline": True},
             {"name": "💳 NoneCap Havuzu", "value": f"**{total_credits:,}** Kredi".replace(",", "."), "inline": True},
-            {"name": "💰 Toplam Bakiye", "value": f"**{total_dl:.2f} DL**", "inline": True},
+            {"name": "💰 Toplam Bakiye", "value": f"**{total_dl:.2f} DL** ({total_wl} WL)", "inline": True},
             {"name": "⏰ Hedef Drop Saati", "value": "20:30 - 20:45 (TR)", "inline": True},
             {"name": "🎯 Sistem Durumu", "value": status_text, "inline": True},
         ]
