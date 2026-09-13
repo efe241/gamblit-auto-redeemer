@@ -204,8 +204,12 @@ class CaptchaPool:
                 pass
             return None
 
-        if self.nonecap_api_key:
-            res = await fetch_nonecap_info(self.nonecap_api_key)
+        all_keys = self.config.all_nonecap_keys
+        primary_key = all_keys[0] if all_keys else self.nonecap_api_key
+        backup_keys = all_keys[1:] if len(all_keys) > 1 else ([self.nonecap_backup_api_key] if self.nonecap_backup_api_key else [])
+
+        if primary_key:
+            res = await fetch_nonecap_info(primary_key)
             if res:
                 balances["nonecap"] = res["text"]
                 balances["nonecap_solves"] = res["solves"]
@@ -213,13 +217,22 @@ class CaptchaPool:
             else:
                 balances["nonecap"] = "1.300 Kredi (Kullanılabilir)"
 
-        if self.nonecap_backup_api_key:
-            res_b = await fetch_nonecap_info(self.nonecap_backup_api_key)
-            if res_b:
-                balances["nonecap_backup"] = res_b["text"]
-                balances["nonecap_backup_remaining"] = res_b["remaining"]
-            else:
-                balances["nonecap_backup"] = "1.300 Kredi (Yedek Hazır)"
+        if backup_keys:
+            backup_texts = []
+            total_backup_rem = 0
+            for idx, b_key in enumerate(backup_keys, start=2):
+                res_b = await fetch_nonecap_info(b_key)
+                if res_b:
+                    total_backup_rem += res_b["remaining"]
+                    backup_texts.append(f"Yedek #{idx}: {res_b['remaining']} Kredi")
+                else:
+                    total_backup_rem += 1300
+                    backup_texts.append(f"Yedek #{idx}: 1.300 Kredi")
+
+            balances["nonecap_backup"] = f"{len(backup_keys)} Yedek Aktif ({total_backup_rem:,} Kredi)".replace(",", ".") + f" [{', '.join(backup_texts)}]"
+            balances["nonecap_backup_remaining"] = total_backup_rem
+        else:
+            balances["nonecap_backup"] = "Yedek Tanımsız"
 
         if self.capsolver_api_key:
             try:
