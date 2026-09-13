@@ -4,11 +4,13 @@ Completely decoupled, fail-safe, and asynchronous.
 Handles:
 - Account disconnect / expiration alerts (with direct link to /cc)
 - Account reconnection notices
+- 15-Minute periodic live status report (accounts, balances, timer, credits)
 - Pre-drop readiness report at 20:15 (TR time)
 - Real-time redeem results & rewards notifications
 """
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 import aiohttp
@@ -76,6 +78,7 @@ class Notifier:
         self._last_account_states: Dict[str, bool] = {}
         self._initialized = False
         self._pre_drop_sent_date: Optional[str] = None
+        self._last_periodic_report_time: float = 0.0
 
     async def start(self):
         """Starts background monitoring task."""
@@ -101,7 +104,6 @@ class Notifier:
 
     async def notify_account_offline(self, acc_name: str, username: str, level: int):
         """Sends an urgent warning when an account disconnects or cookies expire."""
-        panel_url = self.config.gamblit_base_url
         cc_url = "https://gamblit-auto-redeemer.onrender.com/cc"
         fields = [
             {"name": "👤 Hesap", "value": f"**{username}** (`{acc_name}`)", "inline": True},
@@ -133,6 +135,71 @@ class Notifier:
             title="🟢 [BİLGİ] Gamblit Hesabı Yeniden Bağlandı!",
             description=f"**{username}** hesabı başarıyla bağlandı ve drop için hazır.",
             color=1095977,  # Green
+            fields=fields,
+        )
+
+    async def notify_periodic_status(self):
+        """Sends a 15-minute periodic status embed to Discord."""
+        tr_time_str = datetime.now(TR_TZ).strftime("%H:%M")
+        total_accounts = 0
+        connected_accounts = 0
+        total_dl = 0.0
+        acc_names = []
+
+        if self.account_manager:
+            summary = self.account_manager.get_summary()
+            total_accounts = summary.get("total_accounts", 0)
+            connected_accounts = summary.get("connected_accounts", 0)
+            total_dl = summary.get("total_dl", 0.0)
+            for acc in self.account_manager.accounts.values():
+                if acc.enabled and acc.client and acc.client._connected:
+                    u = acc.client._profile.username if acc.client._profile else acc.name
+                    acc_names.append(f"`{u}`")
+
+        total_credits = 0
+        if self.captcha_pool:
+            balances = await self.captcha_pool.get_balances()
+            total_credits = balances.get("total_remaining_credits", 0)
+
+        # Drop window check (20:30 - 20:45)
+        now_tr = datetime.now(TR_TZ)
+        now_minutes = now_tr.hour * 60 + now_tr.minute
+        start_minutes = 20 * 60 + 30
+        end_minutes = 20 * 60 + 45
+
+        if start_minutes <= now_minutes <= end_minutes:
+            sched_status = "⚡ **AKTİF** (Drop Aralığında - Tokenlar Sıcak!)"
+        elif now_minutes < start_minutes:
+            diff_min = start_minutes - now_minutes
+            h = diff_min // 60
+            m = diff_min % 60
+            sched_status = f"⏳ Uykuda (Droba {h} sa {m} dk kaldı • Kredi Harcanmıyor)"
+        else:
+            sched_status = "💤 Uykuda (Bugünkü drop tamamlandı)"
+
+        all_ok = total_accounts > 0 and connected_accounts == total_accounts
+        color = 3711992 if all_ok else 16098851  # Cyan/Blue if all ok, Amber if any issue
+
+        acc_detail = ", ".join(acc_names) if acc_names else "Hesap bekleniyor..."
+
+        fields = [
+            {
+                "name": "👥 Bağlı Hesaplar",
+                "value": f"**{connected_accounts} / {total_accounts}** Aktif\n{acc_detail}",
+                "inline": False,
+            },
+            {"name": "💳 NoneCap Kredisi", "value": f"**{total_credits:,}** Kredi".replace(",", "."), "inline": True},
+            {"name": "💰 Toplam DL Bakiyesi", "value": f"**{total_dl:.2f} DL**", "inline": True},
+            {"name": "⏳ Zamanlayıcı", "value": sched_status, "inline": False},
+            {"name": "🎧 Discord Gateway", "value": "● Dinleniyor (0ms)", "inline": True},
+            {"name": "🌐 Web Paneli", "value": "[Paneli Aç](https://gamblit-auto-redeemer.onrender.com)", "inline": True},
+        ]
+
+        await send_discord_webhook(
+            webhook_url=self.webhook_url,
+            title=f"📊 [15dk Canlı Durum Raporu — {tr_time_str}]",
+            description="Gamblit Auto-Redeemer Pro sistemi kesintisiz çalışıyor.",
+            color=color,
             fields=fields,
         )
 
@@ -213,12 +280,12 @@ class Notifier:
         )
 
     async def _monitoring_loop(self):
-        """Periodic background monitor (every 30 seconds)."""
-        await asyncio.sleep(5)  # initial wait for accounts to connect
+        """Periodic background monitor (checks states every 30s, sends status every 15m)."""
+        await asyncio.sleep(15)  # initial wait for accounts to finish connecting
 
         while self._running:
             try:
-                # 1. Check Account States
+                # 1. Check Account States (Offline / Online alert)
                 if self.account_manager and hasattr(self.account_manager, "accounts"):
                     current_accounts = dict(self.account_manager.accounts)
                     for acc_id, acc in current_accounts.items():
@@ -253,6 +320,13 @@ class Notifier:
                         self._pre_drop_sent_date = today_str
                         log.info("Sending 20:15 Pre-Drop Readiness Report to Discord...")
                         await self.notify_pre_drop_status()
+
+                # 3. 15-Minute Periodic Status Report (every 900 seconds)
+                now_ts = time.time()
+                if now_ts - self._last_periodic_report_time >= 900:
+                    self._last_periodic_report_time = now_ts
+                    log.info("Sending 15-minute periodic status report to Discord...")
+                    await self.notify_periodic_status()
 
             except asyncio.CancelledError:
                 break
