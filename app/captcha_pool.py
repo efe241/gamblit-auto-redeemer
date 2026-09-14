@@ -38,6 +38,15 @@ class CaptchaPool:
         self._target_pool_size: int = 1
         self._cached_keys_data: Optional[Dict[str, Any]] = None
         self._cache_keys_time: float = 0.0
+        self._key_semaphores: Dict[str, asyncio.Semaphore] = {}
+        self._rr_counter: int = 0
+
+    def _get_key_semaphore(self, key: str) -> asyncio.Semaphore:
+        """Limits concurrent requests to max 2 per NoneCap key to strictly prevent HTTP 429 concurrency limit (limit is 5)."""
+        if key not in self._key_semaphores:
+            self._key_semaphores[key] = asyncio.Semaphore(2)
+        return self._key_semaphores[key]
+
 
     @property
     def target_pool_size(self) -> int:
@@ -163,7 +172,12 @@ class CaptchaPool:
             return self.valid_token_count
 
         log.info(f"⚡ [Turbo Warmup] {needed} adet hCaptcha tokenı paralel çözülüyor (Aktif Hesap: {target})...")
-        tasks = [self.auto_solve_once() for _ in range(needed)]
+        async def _solve_staggered(idx: int):
+            if idx > 0:
+                await asyncio.sleep(idx * 0.15)
+            return await self.auto_solve_once(start_key_index=idx)
+
+        tasks = [_solve_staggered(i) for i in range(needed)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         solved = sum(1 for r in results if isinstance(r, str) and r)
         log.info(f"⚡ [Turbo Warmup Tamamlandı] {solved}/{needed} token havuza eklendi! Toplam hazır: {self.valid_token_count}")
@@ -392,6 +406,15 @@ class CaptchaPool:
         if not key:
             return None
 
+        sem = self._get_key_semaphore(key)
+        # Non-blocking acquisition: if key already has 2 active solves, fail fast so caller can use another key!
+        try:
+            await asyncio.wait_for(sem.acquire(), timeout=0.1)
+        except asyncio.TimeoutError:
+            key_p = f"{key[:8]}..." if len(key) > 8 else "NoneCap"
+            log.info(f"⏳ {key_p} anahtarı meşgul (2 aktif istek), sonraki yedek anahtara geçiliyor...")
+            return None
+
         url = "https://api.nonecap.com/v1/solves?wait=35"
         headers = {
             "Authorization": f"Bearer {key}",
@@ -439,6 +462,10 @@ class CaptchaPool:
                                             return p_token
                                         if p_res.get("status") in ("failed", "error"):
                                             break
+                    elif resp.status == 429:
+                        self.last_error = f"NoneCap 429: Concurrency limit, rotating to next key"
+                        log.warning(f"⚠️ NoneCap #{key[:8]} 429 (Eşzamanlı istek limiti), sıradaki anahtara geçiliyor...")
+                        return None
                     else:
                         err_text = await resp.text()
                         self.last_error = f"NoneCap HTTP {resp.status}: {err_text[:100]}"
@@ -448,6 +475,7 @@ class CaptchaPool:
             log.error(self.last_error)
         finally:
             self.is_solving = False
+            sem.release()
         return None
 
     async def test_all_keys(self) -> List[Dict[str, Any]]:
@@ -664,8 +692,8 @@ class CaptchaPool:
             self.is_solving = False
         return None
 
-    async def auto_solve_once(self) -> Optional[str]:
-        """Tries all available NoneCap keys in order (Primary, Backup, Numbered 1..50); then CapSolver, then 2Captcha."""
+    async def auto_solve_once(self, start_key_index: Optional[int] = None) -> Optional[str]:
+        """Tries all available NoneCap keys in round-robin order; then CapSolver, then 2Captcha."""
         # 1. Gather all NoneCap keys from instance and config
         all_keys = []
         if self.nonecap_api_key:
@@ -685,7 +713,17 @@ class CaptchaPool:
                 if cfg_k and cfg_k not in all_keys:
                     all_keys.append(cfg_k)
 
-        for idx, key in enumerate(all_keys, start=1):
+        if all_keys:
+            if start_key_index is not None:
+                start_idx = start_key_index % len(all_keys)
+            else:
+                start_idx = self._rr_counter % len(all_keys)
+                self._rr_counter += 1
+            ordered_keys = all_keys[start_idx:] + all_keys[:start_idx]
+        else:
+            ordered_keys = []
+
+        for idx, key in enumerate(ordered_keys, start=1):
             key_preview = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "NoneCap"
             if idx > 1:
                 log.info(f"🛡️ [Yedek Çözücü #{idx} Aktif] NoneCap anahtarı ({key_preview}) deneniyor...")
@@ -694,7 +732,7 @@ class CaptchaPool:
                 if idx > 1:
                     log.info(f"✅ NoneCap #{idx} ({key_preview}) başarıyla çözdü!")
                 return token
-            log.warning(f"⚠️ NoneCap #{idx} ({key_preview}) başarısız/tükendi, sıradaki çözücüye geçiliyor...")
+            log.warning(f"⚠️ NoneCap #{idx} ({key_preview}) meşgul/başarısız, sıradaki çözücüye geçiliyor...")
 
         # 3. CapSolver fallback
         if self.capsolver_api_key:
